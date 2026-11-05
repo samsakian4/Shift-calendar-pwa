@@ -18,7 +18,7 @@ netlify.toml
 
 ## راه‌اندازی (۵ مرحله)
 
-**۱. Supabase** — پروژه‌ی `shift-calendar` ساخته و `schema.sql` رویش اجرا شده است (برای پروژه‌ی دیگر، فایل را در SQL Editor اجرا کنید). این کارها باقی مانده:
+**۱. Supabase** — پروژه‌ی `shift-calendar` (nfzsdryflmzelrehhsjx) ساخته و `schema.sql` رویش اجرا شده است (برای پروژه‌ی دیگر، فایل را در SQL Editor اجرا کنید). این کارها باقی مانده:
 - Authentication › Users › Add user: برای هر نفر ایمیل و رمز بسازید.
 - Authentication › Sign In / Providers › **Allow new users to sign up** را خاموش کنید (وگرنه هر کسی می‌تواند حساب بسازد و داده‌ها را ببیند).
 - ویرایشگرها (کسانی که حق تغییر دارند، مثلاً سرپرست‌ها):

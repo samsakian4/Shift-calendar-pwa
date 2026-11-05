@@ -1,6 +1,6 @@
 // Service worker: پوسته‌ی برنامه را آفلاین نگه می‌دارد. داده‌ها (Supabase) هرگز کش نمی‌شوند.
 // بعد از هر تغییر در فایل‌ها، شماره‌ی VERSION را زیاد کنید.
-const VERSION = 'shiftcal-v1';
+const VERSION = 'shiftcal-v2';
 const SHELL = [
   './', 'index.html', 'config.js', 'manifest.webmanifest', 'vendor/supabase.js',
   'vendor/fonts/vazirmatn-arabic-400-normal.woff2', 'vendor/fonts/vazirmatn-arabic-500-normal.woff2',

@@ -158,31 +158,74 @@ table.prev th.tdy{color:var(--accent);font-weight:700}
 .login{max-width:380px;margin:24px auto;display:flex;flex-direction:column;gap:12px}
 .login input{width:100%}
 .err{color:var(--crit);font-size:13px;min-height:1.4em}
-.top-actions{display:flex;gap:8px;align-items:center}
+.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
+.btn[aria-current="page"]{border-color:var(--accent);color:var(--accent)}
+.ms{position:relative;min-width:170px;max-width:280px}
+.ms>summary{list-style:none;cursor:pointer;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-height:35px;display:flex;align-items:center;justify-content:space-between;gap:8px;line-height:1.5}
+.ms>summary::-webkit-details-marker{display:none}
+.ms>summary::after{content:"▾";color:var(--ink2);font-size:12px;flex:none}
+.ms[open]>summary{border-color:var(--accent)}
+.ms-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ms-panel{position:absolute;z-index:5;inset-inline-start:0;top:calc(100% + 4px);min-width:100%;max-width:min(90vw,320px);max-height:240px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.ms .ms-opt{display:flex;gap:8px;align-items:center;padding:6px 8px;cursor:pointer;border-radius:4px;white-space:nowrap;font-size:14px;color:var(--ink)}
+.ms .ms-opt:hover{background:var(--surface2)}
+.ms-empty{padding:8px;color:var(--ink2);font-size:13px;white-space:normal}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--line);border-radius:4px;padding:2px 4px;padding-inline-start:10px}
+.opt button{border:0;background:transparent;color:var(--ink2);cursor:pointer;padding:0 6px;border-radius:3px;font-size:14px;line-height:1.6}
+.opt button:hover{background:var(--crit-bg);color:var(--crit)}
+.opt button.armed{background:var(--crit);color:#fff}
+
 .setup{max-width:560px;margin:24px auto;line-height:1.9}
 .setup code{direction:ltr;unicode-bidi:isolate;background:var(--surface2);padding:0 4px;border-radius:3px}
 
+
+/* v2 */
+[hidden]{display:none!important}
+textarea{font:inherit;color:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0;max-width:100%;width:100%;resize:vertical}
+textarea:disabled{opacity:.55}
+.notice{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:20;max-width:560px;margin-inline:auto;padding:10px 14px;border-radius:6px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.notice.bad{background:var(--crit);color:#fff}
+.sh-W{background:var(--good-bg);color:var(--good)}
+.ty-0{background:var(--night-bg);color:var(--night)}
+.ty-1{background:var(--off-bg);color:var(--off)}
+.ty-2{background:var(--day-bg);color:var(--day)}
+.ty-3{background:var(--good-bg);color:var(--good)}
+.rolegrp{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.rg-h{display:flex;gap:8px;align-items:baseline;font-size:13px;color:var(--ink2)}
+.rg-h b{color:var(--ink);font-weight:600}
+.shift-card.D{border-top:3px solid var(--day)}
+.shift-card.N{border-top:3px solid var(--night)}
+.group.sub>h3{font-size:12px}
+.t-desc{color:var(--ink2);font-size:12px}
+.t-by{color:var(--good);font-size:12px}
+.ovr{color:var(--warn)}
+.opt button.ed{font-size:12px}
+.opt button.ed:hover{background:var(--surface2);color:var(--accent)}
+.btn.del:hover{background:var(--crit-bg);color:var(--crit)}
+.scroll{overflow-x:auto}
 </style>
 </head>
 <body>
 <div class="wrap" lang="fa" dir="rtl">
   <header class="top">
     <div class="brand">تقویم شیفت و PM</div>
-    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><button class="btn sm" id="signout" hidden>خروج</button></div>
+    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><a class="btn sm" id="settingsBtn" href="#settings" hidden>تنظیمات</a><button class="btn sm" id="signout" hidden>خروج</button></div>
   </header>
   <nav class="nav" id="nav" aria-label="بخش‌ها">
     <a href="#today" data-v="today">امروز</a>
     <a href="#month" data-v="month">تقویم ماه</a>
     <a href="#staff" data-v="staff">پرسنل</a>
-    <a href="#pm" data-v="pm">دستگاه‌ها و PM</a>
+    <a href="#pm" data-v="pm">PM و کارها</a>
     <a href="#shifts" data-v="shifts">چرخه شیفت</a>
   </nav>
   <main id="app" class="stack"></main>
+  <div id="notice" class="notice" role="status" hidden></div>
 </div>
 <script src="config.js"></script>
 <script src="vendor/supabase.js"></script>
 <script>
-
 (function(){
 'use strict';
 //<jal>
@@ -239,10 +282,13 @@ function monthLen(jy,jm){return (jm===12?j2d(jy+1,1,1):j2d(jy,jm+1,1))-j2d(jy,jm
 var MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 var WD=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 var WDS=['ش','ی','د','س','چ','پ','ج'];
-var TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
+var SHL={D:'روز',N:'شب',W:'روزکار',O:'استراحت',L:'مرخصی'};
 var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه'};
-var SHL={D:'روز',N:'شب',O:'استراحت',L:'مرخصی'};
-var VIEWS_ORDER=['today','month','staff','pm','shifts'];
+var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت شب'],['both','هر شیفت (جدا برای روز و شب)']];
+var SHTXT={any:'',D:'شیفت روز',N:'شیفت شب',both:'هر شیفت'};
+var VIEWS_ORDER=['today','month','staff','pm','shifts','settings'];
+var OLD_TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
+var MS_PH='انتخاب سمت (اختیاری)';
 
 var $=function(s){return document.querySelector(s)};
 var fa=function(s){return String(s).replace(/\d/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[d]})};
@@ -252,12 +298,14 @@ var uid=function(){return Math.random().toString(36).slice(2,9)};
 var clone=function(o){return JSON.parse(JSON.stringify(o))};
 var app=$('#app');
 
+/* ---------- داده‌ی پیش‌فرض و نرمال‌سازی ---------- */
 function defaults(){
   return{
     cycle:'DDNNOOOO',
     anchor:{y:1405,m:1,d:1},
     teams:[{id:'ta',name:'الف',off:0},{id:'tb',name:'ب',off:2},{id:'tc',name:'ج',off:4},{id:'td',name:'د',off:6}],
-    staff:[],machines:[],tasks:[]
+    staff:[],machines:[],tasks:[],
+    lists:{roles:['اپراتور','سرپرست شیفت','تعمیرکار'],halls:['سالن نورد فویل','سالن سپراتور'],types:['PM','کنترل','نگهداری']}
   };
 }
 function normalize(d){
@@ -265,6 +313,27 @@ function normalize(d){
   ['teams','staff','machines','tasks'].forEach(function(k){if(!Array.isArray(o[k]))o[k]=b[k]});
   if(typeof o.cycle!=='string'||o.cycle.length<2)o.cycle=b.cycle;
   if(!o.anchor||!o.anchor.y)o.anchor=b.anchor;
+  o.lists=Object.assign({},b.lists,(d&&d.lists)||{});
+  ['roles','halls','types'].forEach(function(k){if(!Array.isArray(o.lists[k]))o.lists[k]=b.lists[k].slice()});
+  o.staff=o.staff.map(function(x){
+    x=Object.assign({},x);
+    if(!Array.isArray(x.roles)){x.roles=x.role?[x.role]:[];}
+    delete x.role;
+    if(x.kind!=='day')x.kind='shift';
+    return x;
+  });
+  o.machines=o.machines.map(function(m){
+    m=Object.assign({},m);
+    if(!m.hall||m.hall==='بدون سالن')m.hall='';
+    return m;
+  });
+  o.tasks=o.tasks.map(function(t){
+    t=Object.assign({},t);
+    if(OLD_TYPES[t.type])t.type=OLD_TYPES[t.type];
+    if(!t.shift)t.shift='any';
+    if(t.desc==null)t.desc='';
+    return t;
+  });
   return o;
 }
 
@@ -273,13 +342,15 @@ var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
 var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='today';
-var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false;
+var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
-
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
 calcAnchor();
+
+function monthId(jy,jm){return 'm-'+jy+'-'+pad(jm)}
 function teamOf(id){return cfg.teams.find(function(t){return t.id===id})}
 function machineOf(id){return cfg.machines.find(function(m){return m.id===id})}
+function rolesOf(s){return Array.isArray(s.roles)?s.roles:(s.role?[s.role]:[])}
 function teamShift(t,j){
   var c=cfg.cycle,ch=c[mod(j-anchorJ+(+t.off||0),c.length)];
   return ch==='D'||ch==='N'?ch:'O';
@@ -290,77 +361,165 @@ function ovrOf(j,sid){
   return monthState.ovr[x.jd+'_'+sid]||'';
 }
 function staffDay(j){
-  var order={D:0,N:1,O:2,L:3};
+  var order={D:0,N:1,W:2,O:3,L:4};
   return cfg.staff.map(function(s){
-    var t=teamOf(s.team),base=t?teamShift(t,j):'O',o=ovrOf(j,s.id);
+    var t=teamOf(s.team),base;
+    if(s.kind==='day')base=(satIdx(j)===6)?'O':'W';
+    else base=t?teamShift(t,j):'O';
+    var o=ovrOf(j,s.id);
     return{s:s,t:t,base:base,o:o,eff:o||base};
   }).sort(function(a,b){return order[a.eff]-order[b.eff]||a.s.name.localeCompare(b.s.name,'fa')});
 }
-function tasksDue(j){
-  var x=d2j(j),len=monthLen(x.jy,x.jm),w=satIdx(j);
-  return cfg.tasks.filter(function(t){
-    if(t.freq==='daily')return true;
-    if(t.freq==='weekly')return +t.weekday===w;
-    if(t.freq==='monthly')return Math.min(+t.monthDay||1,len)===x.jd;
-    return false;
-  });
+function startJ(t){
+  if(!t.start||!t.start.y)return null;
+  try{return j2d(+t.start.y,+t.start.m,+t.start.d)}catch(e){return null}
 }
-function doneKey(t,jd){return t.id+'_'+jd}
+/* کارهای سررسید یک روز؛ هر مورد یک «نمونه» است: {t, sk} که sk شیفت مسئول است ('' یعنی کل روز) */
+function tasksDue(j){
+  var x=d2j(j),len=monthLen(x.jy,x.jm),w=satIdx(j),out=[];
+  cfg.tasks.forEach(function(t){
+    var sj=startJ(t);
+    if(sj!==null&&j<sj)return;
+    var hit=false;
+    if(t.freq==='daily')hit=true;
+    else if(t.freq==='weekly')hit=(+t.weekday===w);
+    else if(t.freq==='monthly')hit=(Math.min(+t.monthDay||1,len)===x.jd);
+    if(!hit)return;
+    var sh=t.shift||'any';
+    if(sh==='both'){out.push({t:t,sk:'D'});out.push({t:t,sk:'N'})}
+    else if(sh==='D'||sh==='N')out.push({t:t,sk:sh});
+    else out.push({t:t,sk:''});
+  });
+  return out;
+}
+function doneKey(t,jd,sk){return t.id+'_'+jd+(sk?'_'+sk:'')}
 function fmtDate(j){var x=d2j(j);return WD[satIdx(j)]+' '+fa(x.jd)+' '+MONTHS[x.jm-1]+' '+fa(x.jy)}
+function fmtStart(s){return s&&s.y?fa(s.d)+' '+MONTHS[s.m-1]+' '+fa(s.y):''}
 function shiftChip(ch){return '<span class="chip sh-'+ch+'">'+SHL[ch]+'</span>'}
 function teamNames(j,ch){
   var n=cfg.teams.filter(function(t){return teamShift(t,j)===ch}).map(function(t){return t.name});
   return n.join('،')||'—';
 }
 function count(rows,ch){return rows.filter(function(r){return r.eff===ch}).length}
+function typeClass(t){var i=cfg.lists.types.indexOf(t);return 'ty-'+(i<0?1:i%4)}
+function timeFa(iso){try{return new Date(iso).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 
-/* ---------- persistence (Supabase) ---------- */
-var CFG=window.APP_CONFIG||{};
-var sb=null,session=null,online=navigator.onLine!==false,pendCfg=0,authErr='',ch=null,pollT=null;
+/* ---------- اعلان ---------- */
+var noticeT=null;
+function notify(msg,bad){
+  var n=$('#notice');if(!n)return;
+  n.textContent=msg;n.className='notice'+(bad?' bad':'');n.hidden=false;
+  clearTimeout(noticeT);noticeT=setTimeout(function(){n.hidden=true},7000);
+}
+
+/* ---------- ذخیره‌سازی ----------
+   منبع اصلی داده سرور (Supabase) است. روی گوشی فقط دو چیز می‌ماند:
+   یک کپی برای نمایش آفلاین و صف تیک‌هایی که هنوز به سرور نرسیده‌اند. با خروج از حساب هر دو پاک می‌شوند. */
+var CFGKEY='config';
+var sb=null,session=null,online=navigator.onLine!==false,cfgVer=null,cfgSaving=0,outbox=[],lastSync=null,flushing=false,forceOut=false;
+var CFGKEYS=window.APP_CONFIG||{};
+var ch=null,pollT=null;
 function lsSet(k,v){try{localStorage.setItem('shiftcal:'+k,JSON.stringify(v))}catch(e){}}
 function lsGet(k){try{var v=localStorage.getItem('shiftcal:'+k);return v?JSON.parse(v):null}catch(e){return null}}
+function lsClear(){try{Object.keys(localStorage).filter(function(k){return k.indexOf('shiftcal:')===0}).forEach(function(k){localStorage.removeItem(k)})}catch(e){}}
+function loadOutbox(){var o=lsGet('outbox');outbox=Array.isArray(o)?o:[]}
+function saveOutbox(){lsSet('outbox',outbox)}
+function cacheCfg(){lsSet(CFGKEY,{data:cfg,ver:cfgVer})}
+function cacheMonth(){lsSet(monthId(cur.jy,cur.jm),monthState)}
+function isNetErr(e){return !!e&&(!e.code||e.code==='PGRST301'||e.code==='PGRST303')}
+function userName(){return session&&session.user&&session.user.email?session.user.email.split('@')[0]:''}
+
 function toMonthState(d){
   var s={done:{},ovr:{}};
   Object.keys(d||{}).forEach(function(k){
-    if(k.indexOf('d:')===0)s.done[k.slice(2)]=true;
+    if(k.indexOf('d:')===0)s.done[k.slice(2)]=d[k];
     else if(k.indexOf('o:')===0)s.ovr[k.slice(2)]=d[k];
   });
   return s;
 }
-function fail(e){errMsg=(e&&(e.code==='42501'||/row-level security|permission/i.test(e.message||'')))?'readonly':'error';renderTop()}
-function saveCfg(){
-  lsSet('config',cfg);
-  if(!sb||!session)return;
-  pendCfg++;
-  sb.from('shift_kv').upsert({id:'config',data:clone(cfg)}).then(function(r){
-    pendCfg--;
-    if(r.error)fail(r.error);else{errMsg=''}
-    renderTop();
-  },function(e){pendCfg--;fail(e)});
+function applyOp(st,op){
+  Object.keys(op.set||{}).forEach(function(k){
+    if(k.indexOf('d:')===0)st.done[k.slice(2)]=op.set[k];
+    else if(k.indexOf('o:')===0)st.ovr[k.slice(2)]=op.set[k];
+  });
+  (op.del||[]).forEach(function(k){
+    if(k.indexOf('d:')===0)delete st.done[k.slice(2)];
+    else if(k.indexOf('o:')===0)delete st.ovr[k.slice(2)];
+  });
 }
-function patchMonth(set,del){
-  lsSet(monthId(cur.jy,cur.jm),monthState);
-  if(!sb||!session)return;
-  sb.rpc('shift_patch',{p_id:monthId(cur.jy,cur.jm),p_set:set||{},p_del:del||[]}).then(function(r){
-    if(r.error)fail(r.error);else{errMsg=''}
-    renderTop();
-  },fail);
+function fail(e){
+  errMsg=(e&&(e.code==='42501'||/row-level security|permission/i.test(e.message||'')))?'readonly':'error';
+  renderTop();
 }
-function commitCfg(){calcAnchor();saveCfg();render(true)}
-function monthId(jy,jm){return 'm-'+jy+'-'+pad(jm)}
 
-function loadCfg(){
-  return sb.from('shift_kv').select('data').eq('id','config').maybeSingle().then(function(r){
+/* تیک‌ها و تغییر شیفت‌ها: اول در صف ثبت می‌شوند و بعد به سرور می‌روند (آفلاین هم کار می‌کند) */
+function patchMonth(set,del){
+  outbox.push({id:monthId(cur.jy,cur.jm),set:set||{},del:del||[]});
+  saveOutbox();cacheMonth();renderTop();flush();
+}
+function flush(){
+  if(flushing||!sb||!session||!outbox.length)return Promise.resolve();
+  flushing=true;
+  function step(){
+    if(!outbox.length){flushing=false;errMsg='';online=true;lastSync=new Date();renderTop();return Promise.resolve()}
+    var op=outbox[0];
+    return sb.rpc('shift_patch',{p_id:op.id,p_set:op.set,p_del:op.del}).then(function(r){
+      if(r.error){
+        if(isNetErr(r.error)){flushing=false;online=false;renderTop();return}
+        outbox.shift();saveOutbox();fail(r.error);
+        notify('یک تغییر ذخیره نشد: دسترسی نوشتن ندارید.',true);
+        return step();
+      }
+      outbox.shift();saveOutbox();return step();
+    },function(){flushing=false;online=false;renderTop()});
+  }
+  return step();
+}
+
+/* تنظیمات (پرسنل، دستگاه، کارها …): فقط آنلاین، با بررسی تداخل. اگر کس دیگری هم‌زمان تغییر داده باشد، روی تغییر او نمی‌نویسیم. */
+function mutate(fn){
+  if(!canWrite)return false;
+  if(!online||!loadedCfg){notify('این تغییر نیاز به اینترنت و اتصال به سرور دارد.',true);return false}
+  var backup=clone(cfg);
+  fn();calcAnchor();edit=null;render(true);
+  saveCfg(backup);
+  return true;
+}
+function saveCfg(backup){
+  if(!sb||!session)return;
+  cfgSaving++;
+  var payload=clone(cfg),q;
+  if(cfgVer)q=sb.from('shift_kv').update({data:payload}).eq('id','config').eq('updated_at',cfgVer).select('updated_at');
+  else q=sb.from('shift_kv').insert({id:'config',data:payload}).select('updated_at');
+  q.then(function(r){
+    cfgSaving--;
+    if(r.error&&r.error.code!=='23505'){
+      if(isNetErr(r.error)){online=false;cfg=backup;calcAnchor();notify('اینترنت قطع بود و تغییر ذخیره نشد. دوباره انجام دهید.',true)}
+      else{fail(r.error);cfg=backup;calcAnchor();notify('تغییر ذخیره نشد: دسترسی نوشتن ندارید یا خطایی رخ داد.',true)}
+      render(true);return;
+    }
+    if(r.error||!r.data||!r.data.length){
+      notify('کس دیگری هم‌زمان تنظیمات را تغییر داده بود. نسخه‌ی جدید بارگذاری شد؛ تغییر خود را دوباره انجام دهید.',true);
+      cfg=backup;loadCfg(true).then(function(){render(true)},function(){render(true)});return;
+    }
+    cfgVer=r.data[0].updated_at;cacheCfg();errMsg='';lastSync=new Date();renderTop();
+  },function(){cfgSaving--;online=false;cfg=backup;calcAnchor();notify('اینترنت قطع بود و تغییر ذخیره نشد.',true);render(true)});
+}
+function loadCfg(force){
+  return sb.from('shift_kv').select('data,updated_at').eq('id','config').maybeSingle().then(function(r){
     if(r.error)throw r.error;
-    if(pendCfg===0){cfg=normalize(r.data?r.data.data:null);calcAnchor();lsSet('config',cfg)}
-    loadedCfg=true;slow=false;online=true;errMsg='';
+    if(!cfgSaving||force){cfg=normalize(r.data?r.data.data:null);cfgVer=r.data?r.data.updated_at:null;calcAnchor();cacheCfg()}
+    loadedCfg=true;slow=false;online=true;errMsg='';lastSync=new Date();
   });
 }
 function loadMonth(){
   var id=monthId(cur.jy,cur.jm);
   return sb.from('shift_kv').select('data').eq('id',id).maybeSingle().then(function(r){
     if(r.error)throw r.error;
-    if(id===monthId(cur.jy,cur.jm)){monthState=toMonthState(r.data?r.data.data:null);lsSet(id,monthState)}
+    if(id!==monthId(cur.jy,cur.jm))return;
+    var st=toMonthState(r.data?r.data.data:null);
+    outbox.forEach(function(op){if(op.id===id)applyOp(st,op)});
+    monthState=st;cacheMonth();
   });
 }
 function refresh(){
@@ -379,8 +538,12 @@ function subscribe(){
   if(ch){try{sb.removeChannel(ch)}catch(e){}ch=null}
   ch=sb.channel('shift-kv').on('postgres_changes',{event:'*',schema:'public',table:'shift_kv'},function(p){
     var row=p.new;if(!row||!row.id)return;
-    if(row.id==='config'){if(pendCfg===0){cfg=normalize(row.data);calcAnchor();lsSet('config',cfg);render()}}
-    else if(row.id===monthId(cur.jy,cur.jm)){monthState=toMonthState(row.data);render()}
+    if(row.id==='config'){if(!cfgSaving){cfg=normalize(row.data);cfgVer=row.updated_at||cfgVer;calcAnchor();cacheCfg();render()}}
+    else if(row.id===monthId(cur.jy,cur.jm)){
+      var st=toMonthState(row.data);
+      outbox.forEach(function(op){if(op.id===row.id)applyOp(st,op)});
+      monthState=st;cacheMonth();render();
+    }
   }).subscribe();
 }
 function startSession(s){
@@ -389,12 +552,16 @@ function startSession(s){
     if(ch){try{sb.removeChannel(ch)}catch(e){}ch=null}
     clearInterval(pollT);canWrite=false;loadedCfg=false;render(true);return;
   }
+  var cw=lsGet('role');canWrite=!!(cw&&cw.uid===s.user.id&&cw.w);
+  loadOutbox();
   sb.from('shift_editors').select('user_id').eq('user_id',s.user.id).maybeSingle().then(function(r){
-    canWrite=!!(r.data);render(true);
-  },function(){canWrite=false});
-  refresh();subscribe();
-  clearInterval(pollT);pollT=setInterval(function(){if(!document.hidden)refresh()},90000);
+    if(r.error)return;
+    canWrite=!!r.data;lsSet('role',{uid:s.user.id,w:canWrite});render(true);
+  },function(){});
+  flush().then(refresh);subscribe();
+  clearInterval(pollT);pollT=setInterval(function(){if(!document.hidden)flush().then(refresh)},90000);
 }
+var authErr='';
 function signIn(){
   var em=val('li-email'),pw=document.getElementById('li-pass').value;
   if(!em||!pw){authErr='ایمیل و رمز عبور را وارد کنید.';render(true);return}
@@ -402,76 +569,123 @@ function signIn(){
     if(r.error){authErr='ایمیل یا رمز عبور درست نیست.';render(true)}
   },function(){authErr='اتصال به سرور برقرار نشد. اینترنت را بررسی کنید.';render(true)});
 }
-function signOut(){sb.auth.signOut()}
-
-/* ---------- views ---------- */
-function taskRow(t,j,showMachine){
-  var x=d2j(j),k=doneKey(t,x.jd),done=!!monthState.done[k],m=machineOf(t.machine);
-  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+(done?' checked':'')+(canWrite?'':' disabled')+'>'+
-    '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+'</span>'+
-    '<span class="chip ty-'+esc(t.type)+'">'+esc(TYPES[t.type]||t.type)+'</span></label>';
-}
-function tasksGrouped(j){
-  var due=tasksDue(j);
-  if(!due.length)return '<div class="empty">برای این روز کار PM یا کنترلی برنامه‌ریزی نشده است.</div>';
-  var groups={};
-  due.forEach(function(t){
-    var m=machineOf(t.machine),h=m?m.hall:'بدون سالن';
-    (groups[h]=groups[h]||[]).push(t);
+function signOut(){
+  flush().then(function(){
+    if(outbox.length&&!forceOut){
+      forceOut=true;
+      notify('تغییرهای ارسال‌نشده‌ای روی این گوشی هست. اگر باز هم «خروج» بزنید، حذف می‌شوند.',true);
+      return;
+    }
+    forceOut=false;outbox=[];lsClear();cfg=normalize();monthState={done:{},ovr:{}};cfgVer=null;
+    sb.auth.signOut();
   });
+}
+
+/* ---------- اجزای مشترک رابط ---------- */
+function msHtml(id,opts,sel){
+  var all=opts.slice();sel.forEach(function(x){if(all.indexOf(x)<0)all.push(x)});
+  var h='<details class="ms" data-ms="'+esc(id)+'"><summary aria-label="سمت"><span class="ms-t">'+esc(sel.length?sel.join('، '):MS_PH)+'</span></summary><div class="ms-panel">';
+  if(!all.length)h+='<div class="ms-empty">سمتی تعریف نشده است. از «تنظیمات» اضافه کنید.</div>';
+  all.forEach(function(o){
+    h+='<label class="ms-opt"><input type="checkbox" value="'+esc(o)+'" data-act="msform"'+(sel.indexOf(o)>=0?' checked':'')+'><span>'+esc(o)+'</span></label>';
+  });
+  return h+'</div></details>';
+}
+function msChecked(dt){return [].map.call(dt.querySelectorAll('input[type=checkbox]:checked'),function(i){return i.value})}
+function opt(v,t,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(t)+'</option>'}
+function dis(){return canWrite?'':' disabled'}
+function editBtns(kind,id){
+  return canWrite?'<button class="btn sm" data-act="edit" data-kind="'+kind+'" data-id="'+esc(id)+'">ویرایش</button><button class="btn sm del" data-act="del" data-kind="'+kind+'" data-id="'+esc(id)+'">حذف</button>':'';
+}
+function isEdit(kind,id){return edit&&edit.kind===kind&&edit.id===id}
+function allHalls(){
+  var a=cfg.lists.halls.slice();
+  cfg.machines.forEach(function(m){if(m.hall&&a.indexOf(m.hall)<0)a.push(m.hall)});
+  return a;
+}
+
+/* ---------- امروز ---------- */
+function roleGroups(rows){
+  var g={},order=cfg.lists.roles;
+  rows.forEach(function(r){var rs=rolesOf(r.s);if(!rs.length)rs=['بدون سمت'];rs.forEach(function(x){(g[x]=g[x]||[]).push(r)})});
+  var keys=Object.keys(g).sort(function(a,b){
+    if(a==='بدون سمت')return 1;if(b==='بدون سمت')return -1;
+    var ia=order.indexOf(a),ib=order.indexOf(b);
+    if(ia<0&&ib<0)return a.localeCompare(b,'fa');
+    if(ia<0)return 1;if(ib<0)return -1;return ia-ib;
+  });
+  return keys.map(function(k){return{role:k,rows:g[k]}});
+}
+function peopleHtml(rows){
+  if(!rows.length)return '<p class="muted">کسی در این گروه نیست.</p>';
+  return roleGroups(rows).map(function(g){
+    return '<div class="rolegrp"><div class="rg-h"><b>'+esc(g.role)+'</b><small>'+fa(g.rows.length)+' نفر</small></div><ul class="names">'+
+      g.rows.map(function(r){return '<li>'+esc(r.s.name)+(r.o&&r.o!==r.base?'<small class="ovr">(تغییر دستی)</small>':'')+'</li>'}).join('')+'</ul></div>';
+  }).join('');
+}
+function taskRow(it,j,showMachine,showSk){
+  var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=monthState.done[k],done=!!dv,m=machineOf(t.machine);
+  var by=(dv&&typeof dv==='object')?(' · '+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')):'';
+  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+(done?' checked':'')+dis()+'>'+
+    '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
+    (t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
+    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
+}
+function instGroups(list,j,showSk){
+  if(!list.length)return '';
+  var groups={};
+  list.forEach(function(it){var m=machineOf(it.t.machine),h=m&&m.hall?m.hall:'بدون سالن';(groups[h]=groups[h]||[]).push(it)});
   return Object.keys(groups).map(function(h){
-    return '<div class="group"><h3>'+esc(h)+'</h3>'+groups[h].map(function(t){return taskRow(t,j,true)}).join('')+'</div>';
+    return '<div class="group"><h3>'+esc(h)+'</h3>'+groups[h].map(function(it){return taskRow(it,j,true,showSk)}).join('')+'</div>';
   }).join('');
 }
 function monthStats(upToJd){
   var len=monthLen(cur.jy,cur.jm),first=j2d(cur.jy,cur.jm,1),due=0,done=0,info={};
   for(var d=1;d<=len;d++){
     var j=first+d-1,ts=tasksDue(j),n=0;
-    ts.forEach(function(t){if(monthState.done[doneKey(t,d)])n++});
+    ts.forEach(function(it){if(monthState.done[doneKey(it.t,d,it.sk)])n++});
     info[d]={due:ts.length,done:n,tasks:ts};
     if(d<=upToJd){due+=ts.length;done+=n}
   }
   return{due:due,done:done,info:info,len:len,first:first};
 }
-function warnShift(rows,ch){
-  if(!cfg.staff.length)return '';
-  return count(rows,ch)===0?'<span class="alert">شیفت '+SHL[ch]+' بدون نفر است</span>':'';
+function hasShiftStaff(){return cfg.staff.some(function(s){return s.kind!=='day'})}
+function warnShift(rows,c){
+  if(!hasShiftStaff())return '';
+  return count(rows,c)===0?'<span class="alert">شیفت '+SHL[c]+' بدون نفر است</span>':'';
 }
-
 function viewToday(){
-  var j=todayJ,x=d2j(j),rows=staffDay(j);
-  var inMonth=cur.jy===x.jy&&cur.jm===x.jm;
-  var st=inMonth?monthStats(x.jd):null;
-  var h='<div class="stack"><div><div class="eyebrow">امروز</div><h1 class="date">'+fmtDate(j)+'</h1></div>';
-  h+='<div class="two">';
-  ['D','N'].forEach(function(ch){
-    var on=rows.filter(function(r){return r.eff===ch});
-    h+='<section class="card shift-card '+ch+'"><div class="row between"><h2>شیفت '+SHL[ch]+'</h2><span class="chip sh-'+ch+'">تیم '+esc(teamNames(j,ch))+'</span></div>';
-    h+=on.length?'<ul class="names">'+on.map(function(r){return '<li>'+esc(r.s.name)+(r.s.role?'<small>'+esc(r.s.role)+'</small>':'')+'</li>'}).join('')+'</ul><small>'+fa(on.length)+' نفر</small>':
-      (cfg.staff.length?'':'<span class="muted">پرسنلی ثبت نشده است.</span>');
-    h+=warnShift(rows,ch)+'</section>';
+  var j=todayJ,x=d2j(j),rows=staffDay(j),fri=satIdx(j)===6,due=tasksDue(j);
+  var inMonth=cur.jy===x.jy&&cur.jm===x.jm,st=inMonth?monthStats(x.jd):null;
+  var h='<div class="stack"><div><div class="eyebrow">امروز</div><h1 class="date">'+fmtDate(j)+'</h1></div><div class="two">';
+  ['D','N'].forEach(function(c){
+    var on=rows.filter(function(r){return r.eff===c}),mine=due.filter(function(i){return i.sk===c});
+    h+='<section class="card shift-card '+c+' stack"><div class="row between"><h2>شیفت '+SHL[c]+'</h2><span class="chip sh-'+c+'">تیم '+esc(teamNames(j,c))+'</span></div>';
+    h+='<div class="group"><h3>پرسنل ('+fa(on.length)+' نفر)</h3>'+(cfg.staff.length?peopleHtml(on):'<span class="muted">پرسنلی ثبت نشده است.</span>')+warnShift(rows,c)+'</div>';
+    h+='<div class="group"><h3>کارهای این شیفت</h3>'+(mine.length?instGroups(mine,j,false).replace(/<div class="group"><h3>/g,'<div class="group sub"><h3>'):'<small class="muted">کاری برای این شیفت تعریف نشده است.</small>')+'</div></section>';
   });
   h+='</div>';
+  if(cfg.staff.some(function(s){return s.kind==='day'})){
+    var wk=rows.filter(function(r){return r.eff==='W'});
+    h+='<section class="card stack"><div class="row between"><h2>روزکار</h2><span class="chip sh-W">شنبه تا پنجشنبه</span></div>'+(fri?'<p class="muted">امروز جمعه است و روزکارها تعطیل‌اند.</p>':peopleHtml(wk))+'</section>';
+  }
+  var any=due.filter(function(i){return i.sk===''});
+  h+='<section class="card stack"><div class="row between"><h2>کارهای امروز</h2>'+(st?'<small>'+fa(st.info[x.jd].done)+' از '+fa(st.info[x.jd].due)+' انجام شد</small>':'')+'</div><p class="hint">کارهایی که شیفت مشخصی ندارند. کارهای هر شیفت داخل کارت همان شیفت است.</p>';
+  h+=cfg.tasks.length?(any.length?instGroups(any,j,false):'<div class="empty">کار بدون شیفتی برای امروز نیست.</div>'):'<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#pm">PM و کارها</a> اضافه کنید.</div>';
+  h+='</section>';
   var rest=rows.filter(function(r){return r.eff==='O'||r.eff==='L'});
   if(rest.length)h+='<p class="hint">استراحت و مرخصی: '+rest.map(function(r){return esc(r.s.name)+(r.eff==='L'?' (مرخصی)':'')}).join('، ')+'</p>';
   if(!cfg.staff.length)h+='<div class="empty">هنوز پرسنلی ثبت نشده است. از بخش <a href="#staff">پرسنل</a> شروع کنید.</div>';
-
-  h+='<section class="card stack"><div class="row between"><h2>PM و کنترل امروز</h2>'+(st?'<small>'+fa(st.info[x.jd].done)+' از '+fa(st.info[x.jd].due)+' انجام شد</small>':'')+'</div>';
-  h+=cfg.tasks.length?tasksGrouped(j):'<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#pm">دستگاه‌ها و PM</a> اضافه کنید.</div>';
-  h+='</section>';
-
   if(st){
     var late=[];
-    for(var d=1;d<x.jd;d++)st.info[d].tasks.forEach(function(t){if(!monthState.done[doneKey(t,d)])late.push({t:t,d:d})});
+    for(var d=1;d<x.jd;d++)st.info[d].tasks.forEach(function(it){if(!monthState.done[doneKey(it.t,d,it.sk)])late.push({it:it,d:d})});
     var pct=st.due?Math.round(st.done*100/st.due):0;
-    h+='<section class="card stack"><div class="row between"><h2>پیشرفت ماه '+MONTHS[x.jm-1]+'</h2><b>'+fa(pct)+'٪</b></div>'+
-      '<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div>'+
-      '<small>'+fa(st.done)+' از '+fa(st.due)+' کار تا امروز انجام شده است.</small>';
+    h+='<section class="card stack"><div class="row between"><h2>پیشرفت ماه '+MONTHS[x.jm-1]+'</h2><b>'+fa(pct)+'٪</b></div><div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div><small>'+fa(st.done)+' از '+fa(st.due)+' کار تا امروز انجام شده است.</small>';
     if(late.length){
       h+='<div class="group"><h3>عقب‌افتاده ('+fa(late.length)+')</h3>';
       late.slice(-10).reverse().forEach(function(l){
-        var m=machineOf(l.t.machine);
-        h+='<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(doneKey(l.t,l.d))+'"'+(canWrite?'':' disabled')+'><span class="t-main"><b>'+esc(l.t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span><span class="chip ty-'+esc(l.t.type)+'">'+esc(TYPES[l.t.type]||'')+'</span></label>';
+        var t=l.it.t,m=machineOf(t.machine),k=doneKey(t,l.d,l.it.sk);
+        h+='<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+dis()+'><span class="t-main"><b>'+esc(t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span>'+(l.it.sk?shiftChip(l.it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
       });
       if(late.length>10)h+='<small>و '+fa(late.length-10)+' مورد قدیمی‌تر</small>';
       h+='</div>';
@@ -481,26 +695,27 @@ function viewToday(){
   return h+'</div>';
 }
 
+/* ---------- تقویم ماه ---------- */
 function dayDetail(j){
-  var x=d2j(j),rows=staffDay(j);
+  var rows=staffDay(j),ts=tasksDue(j);
   var h='<section class="card stack"><div class="row between"><h2>'+fmtDate(j)+'</h2><span class="hint">روز: '+esc(teamNames(j,'D'))+' · شب: '+esc(teamNames(j,'N'))+'</span></div>';
   h+='<div class="row">'+warnShift(rows,'D')+warnShift(rows,'N')+'</div>';
   if(cfg.staff.length){
     h+='<div class="group"><h3>وضعیت پرسنل در این روز</h3>';
     rows.forEach(function(r){
-      h+='<div class="list-row"><span class="grow"><b>'+esc(r.s.name)+'</b> <small>'+esc(r.t?'تیم '+r.t.name:'بدون تیم')+'</small></span>'+shiftChip(r.eff)+
-        '<select data-act="ovr" data-s="'+esc(r.s.id)+'" data-j="'+j+'" aria-label="تغییر وضعیت '+esc(r.s.name)+'"'+(canWrite?'':' disabled')+'>'+
-        '<option value="">طبق چرخه ('+SHL[r.base]+')</option>'+['D','N','O','L'].map(function(c){return '<option value="'+c+'"'+(r.o===c?' selected':'')+'>'+SHL[c]+'</option>'}).join('')+'</select></div>';
+      var opts=r.s.kind==='day'?['D','N','W','O','L']:['D','N','O','L'];
+      h+='<div class="list-row"><span class="grow"><b>'+esc(r.s.name)+'</b> <small>'+esc(r.s.kind==='day'?'روزکار':(r.t?'تیم '+r.t.name:'بدون تیم'))+'</small></span>'+shiftChip(r.eff)+
+        '<select data-act="ovr" data-s="'+esc(r.s.id)+'" data-j="'+j+'" aria-label="تغییر وضعیت '+esc(r.s.name)+'"'+dis()+'>'+
+        '<option value="">طبق برنامه ('+SHL[r.base]+')</option>'+opts.map(function(c){return opt(c,SHL[c],r.o===c)}).join('')+'</select></div>';
     });
     h+='</div>';
   }
-  h+='<div class="group"><h3>PM و کنترل</h3>'+tasksGrouped(j).replace(/<div class="group"><h3>/g,'<div class="group"><h3>')+'</div></section>';
+  h+='<div class="group"><h3>PM و کارها</h3>'+(ts.length?instGroups(ts,j,true):'<div class="empty">برای این روز کاری برنامه‌ریزی نشده است.</div>')+'</div></section>';
   return h;
 }
 function viewMonth(){
   var st=monthStats(99),first=st.first,off=satIdx(first);
-  var h='<div class="row between"><h2>'+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row">'+
-    '<button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">امروز</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
+  var h='<div class="row between"><h2>'+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row"><button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">امروز</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
   h+='<div class="cal-head" aria-hidden="true">'+WDS.map(function(w){return '<div>'+w+'</div>'}).join('')+'</div><div class="grid">';
   for(var i=0;i<off;i++)h+='<div class="cell blank"></div>';
   for(var d=1;d<=st.len;d++){
@@ -510,67 +725,115 @@ function viewMonth(){
     if(inf.due)pmc='<span class="pm'+(inf.done===inf.due?' ok':(j<todayJ?' late':''))+'">'+fa(inf.done)+'/'+fa(inf.due)+'</span>';
     h+='<button class="'+cls+'" data-act="pick" data-j="'+j+'" aria-label="'+esc(fmtDate(j))+'"><span class="dn">'+fa(d)+'</span><span class="sh"><i class="s-D">'+esc(teamNames(j,'D'))+'</i><i class="s-N">'+esc(teamNames(j,'N'))+'</i></span>'+pmc+'</button>';
   }
-  h+='</div><p class="hint"><span class="chip sh-D">روز</span> <span class="chip sh-N">شب</span> نام تیم هر شیفت · عدد پایین هر روز: کارهای PM انجام‌شده از کل</p>';
+  h+='</div><p class="hint"><span class="chip sh-D">روز</span> <span class="chip sh-N">شب</span> نام تیم هر شیفت · عدد پایین هر روز: کارهای انجام‌شده از کل</p>';
   return h+dayDetail(selJ);
 }
 
+/* ---------- پرسنل ---------- */
+function staffFormHtml(p,s){
+  var kind=s?s.kind:'shift';
+  return '<div class="row">'+
+    '<div class="field"><label for="'+p+'-name">نام</label><input id="'+p+'-name" autocomplete="off" value="'+esc(s?s.name:'')+'"></div>'+
+    '<div class="field"><label for="'+p+'-kind">نوع</label><select id="'+p+'-kind" data-act="kindsel">'+opt('shift','شیفتی',kind==='shift')+opt('day','روزکار (شنبه تا پنجشنبه)',kind==='day')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-team">تیم شیفت</label><select id="'+p+'-team"'+(kind==='day'?' disabled':'')+'>'+cfg.teams.map(function(t){return opt(t.id,t.name,s&&s.team===t.id)}).join('')+'</select></div>'+
+    '<div class="field"><label>سمت (اختیاری، چند انتخابی)</label>'+msHtml('ms-'+p,cfg.lists.roles,s?rolesOf(s):[])+'</div></div>';
+}
+function readStaff(p){
+  var n=val(p+'-name');
+  if(!n){notify('نام را بنویسید.',true);return null}
+  var kind=val(p+'-kind')==='day'?'day':'shift',dt=document.querySelector('details[data-ms="ms-'+p+'"]');
+  return{name:n,kind:kind,team:kind==='day'?'':val(p+'-team'),roles:dt?msChecked(dt):[]};
+}
+function staffMeta(s){
+  var r=rolesOf(s);
+  return r.length?' <small>'+esc(r.join('، '))+'</small>':'';
+}
 function viewStaff(){
   var h='';
-  if(canWrite)h+='<section class="card stack"><h2>افزودن نفر</h2><div class="row">'+
-    '<div class="field"><label for="ns-name">نام</label><input id="ns-name" autocomplete="off"></div>'+
-    '<div class="field"><label for="ns-role">سمت</label><input id="ns-role" autocomplete="off"></div>'+
-    '<div class="field"><label for="ns-team">تیم شیفت</label><select id="ns-team">'+cfg.teams.map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>'}).join('')+'</select></div>'+
-    '<button class="btn pri" data-act="addstaff">افزودن</button></div></section>';
+  if(canWrite)h+='<section class="card stack"><h2>افزودن نفر</h2>'+staffFormHtml('ns',null)+'<div class="row"><button class="btn pri" data-act="addstaff">افزودن</button></div></section>';
   if(!cfg.staff.length)return h+'<div class="empty">هنوز پرسنلی ثبت نشده است.</div>';
-  var teams=cfg.teams.concat([{id:'',name:'بدون تیم'}]);
-  teams.forEach(function(t){
-    var list=cfg.staff.filter(function(s){return (s.team||'')===t.id});
-    if(!list.length)return;
-    h+='<section class="card"><h2>تیم '+esc(t.name)+' <small>('+fa(list.length)+' نفر)</small></h2>';
-    list.forEach(function(s){
-      h+='<div class="list-row"><span class="grow"><b>'+esc(s.name)+'</b>'+(s.role?' <small>'+esc(s.role)+'</small>':'')+'</span>'+
-        '<select data-act="staffteam" data-id="'+esc(s.id)+'" aria-label="تیم '+esc(s.name)+'"'+(canWrite?'':' disabled')+'>'+teams.map(function(o){return '<option value="'+esc(o.id)+'"'+((s.team||'')===o.id?' selected':'')+'>'+esc(o.name)+'</option>'}).join('')+'</select>'+
-        (canWrite?'<button class="btn sm del" data-act="del" data-kind="staff" data-id="'+esc(s.id)+'">حذف</button>':'')+'</div>';
+  var groups=cfg.teams.map(function(t){return{title:'تیم '+t.name,list:cfg.staff.filter(function(s){return s.kind!=='day'&&s.team===t.id})}});
+  groups.push({title:'روزکار (شنبه تا پنجشنبه، جمعه تعطیل)',list:cfg.staff.filter(function(s){return s.kind==='day'})});
+  groups.push({title:'شیفتی بدون تیم',list:cfg.staff.filter(function(s){return s.kind!=='day'&&!teamOf(s.team)})});
+  groups.forEach(function(g){
+    if(!g.list.length)return;
+    h+='<section class="card"><h2>'+esc(g.title)+' <small>('+fa(g.list.length)+' نفر)</small></h2>';
+    g.list.forEach(function(s){
+      if(isEdit('staff',s.id)){
+        h+='<div class="card flat stack"><h3>ویرایش '+esc(s.name)+'</h3>'+staffFormHtml('es',s)+'<div class="row"><button class="btn pri" data-act="savestaff" data-id="'+esc(s.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+        return;
+      }
+      h+='<div class="list-row"><span class="grow"><b>'+esc(s.name)+'</b>'+staffMeta(s)+'</span>'+editBtns('staff',s.id)+'</div>';
     });
     h+='</section>';
   });
   return h;
 }
 
+/* ---------- PM و کارها ---------- */
 function freqText(t){
-  if(t.freq==='weekly')return 'هفتگی، '+WD[+t.weekday||0];
-  if(t.freq==='monthly')return 'ماهانه، روز '+fa(+t.monthDay||1);
-  return 'روزانه';
+  var a=t.freq==='weekly'?'هفتگی، '+WD[+t.weekday||0]:t.freq==='monthly'?'ماهانه، روز '+fa(+t.monthDay||1):'روزانه';
+  var sh=SHTXT[t.shift||'any'];
+  var st=fmtStart(t.start);
+  return a+(sh?' · '+sh:'')+(st?' · از '+st:'');
+}
+function taskFormHtml(p,t){
+  var m=t?machineOf(t.machine):null,hall=m?m.hall:'';
+  var halls=allHalls(),freq=t?t.freq:'daily',sh=t?(t.shift||'any'):'any';
+  var s=(t&&t.start&&t.start.y)?t.start:{y:tj.jy,m:tj.jm,d:tj.jd};
+  var h='<div class="row">'+
+    '<div class="field"><label for="'+p+'-hall">۱. سالن</label><select id="'+p+'-hall" data-act="taskhall">'+opt('','بدون سالن',hall==='')+halls.map(function(x){return opt(x,x,hall===x)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-machine">۲. دستگاه</label><select id="'+p+'-machine">'+machineOptions(hall,t?t.machine:'')+'</select></div>'+
+    '<div class="field grow"><label for="'+p+'-title">۳. عنوان کار</label><input id="'+p+'-title" autocomplete="off" value="'+esc(t?t.title:'')+'"></div></div>'+
+    '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
+    '<div class="row">'+
+    '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t&&t.type===x)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-freq">تکرار</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
+    '<div class="field" id="'+p+'-wd-f"'+(freq==='weekly'?'':' hidden')+'><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div>'+
+    '<div class="field" id="'+p+'-md-f"'+(freq==='monthly'?'':' hidden')+'><label for="'+p+'-md">روز ماه</label><input id="'+p+'-md" type="number" min="1" max="31" value="'+(t?(+t.monthDay||1):1)+'" inputmode="numeric" style="width:80px"></div>'+
+    '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+SHOPT.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
+    '<div class="row"><div class="field"><label for="'+p+'-sy">شروع از سال</label><input id="'+p+'-sy" type="number" value="'+s.y+'" inputmode="numeric" style="width:90px"></div>'+
+    '<div class="field"><label for="'+p+'-sm">ماه</label><select id="'+p+'-sm">'+MONTHS.map(function(mn,i){return opt(i+1,mn,s.m===i+1)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-sd">روز</label><input id="'+p+'-sd" type="number" min="1" max="31" value="'+s.d+'" inputmode="numeric" style="width:72px"></div></div>';
+  return h;
+}
+function machineOptions(hall,sel){
+  var list=cfg.machines.filter(function(m){return (m.hall||'')===(hall||'')});
+  if(!list.length)return '<option value="">دستگاهی در این سالن نیست</option>';
+  return list.map(function(m){return opt(m.id,m.name,m.id===sel)}).join('');
+}
+function readTask(p){
+  var mid=val(p+'-machine'),title=val(p+'-title');
+  if(!mid){notify('اول سالن و دستگاه را انتخاب کنید. دستگاه‌ها را در «تنظیمات» تعریف کنید.',true);return null}
+  if(!title){notify('عنوان کار را بنویسید.',true);return null}
+  var y=+val(p+'-sy'),m=+val(p+'-sm'),d=+val(p+'-sd');
+  if(!(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=31)){notify('تاریخ شروع درست نیست.',true);return null}
+  return{machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:val(p+'-freq'),weekday:+val(p+'-wd')||0,
+    monthDay:Math.max(1,Math.min(31,+val(p+'-md')||1)),shift:val(p+'-shift')||'any',start:{y:y,m:m,d:d}};
 }
 function viewPM(){
   var h='';
   if(canWrite){
-    var halls=[];cfg.machines.forEach(function(m){if(halls.indexOf(m.hall)<0)halls.push(m.hall)});
-    h+='<div class="two"><section class="card stack"><h2>افزودن دستگاه</h2><div class="row">'+
-      '<div class="field"><label for="nm-name">نام دستگاه</label><input id="nm-name" autocomplete="off"></div>'+
-      '<div class="field"><label for="nm-hall">سالن</label><input id="nm-hall" list="halls" autocomplete="off"><datalist id="halls">'+halls.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist></div>'+
-      '<button class="btn pri" data-act="addmachine">افزودن</button></div></section>';
-    h+='<section class="card stack"><h2>افزودن کار PM / کنترل</h2><div class="row">'+
-      '<div class="field"><label for="nt-machine">دستگاه</label><select id="nt-machine">'+cfg.machines.map(function(m){return '<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>'}).join('')+'</select></div>'+
-      '<div class="field"><label for="nt-title">عنوان کار</label><input id="nt-title" autocomplete="off"></div>'+
-      '<div class="field"><label for="nt-type">نوع</label><select id="nt-type">'+Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k]+'</option>'}).join('')+'</select></div>'+
-      '<div class="field"><label for="nt-freq">تکرار</label><select id="nt-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return '<option value="'+k+'">'+FREQ[k]+'</option>'}).join('')+'</select></div>'+
-      '<div class="field" id="nt-wd-f" hidden><label for="nt-wd">روز هفته</label><select id="nt-wd">'+WD.map(function(w,i){return '<option value="'+i+'">'+w+'</option>'}).join('')+'</select></div>'+
-      '<div class="field" id="nt-md-f" hidden><label for="nt-md">روز ماه</label><input id="nt-md" type="number" min="1" max="31" value="1" inputmode="numeric" style="width:80px"></div>'+
-      '<button class="btn pri" data-act="addtask">افزودن</button></div></section></div>';
+    h+='<section class="card stack"><h2>افزودن کار</h2>';
+    h+=cfg.machines.length?taskFormHtml('nt',null)+'<div class="row"><button class="btn pri" data-act="addtask">افزودن</button></div>':'<div class="empty">اول دستگاه‌ها را در <a href="#settings">تنظیمات</a> تعریف کنید.</div>';
+    h+='</section>';
   }
-  if(!cfg.machines.length)return h+'<div class="empty">هنوز دستگاهی ثبت نشده است.</div>';
-  var halls2={};
-  cfg.machines.forEach(function(m){(halls2[m.hall]=halls2[m.hall]||[]).push(m)});
-  Object.keys(halls2).forEach(function(hn){
+  if(!cfg.tasks.length)return h+'<div class="empty">هنوز کاری تعریف نشده است.</div>';
+  var halls={};
+  cfg.tasks.forEach(function(t){var m=machineOf(t.machine),hn=m&&m.hall?m.hall:'بدون سالن';(halls[hn]=halls[hn]||[]).push(t)});
+  Object.keys(halls).forEach(function(hn){
     h+='<section class="card stack"><h2>'+esc(hn)+'</h2>';
-    halls2[hn].forEach(function(m){
-      var ts=cfg.tasks.filter(function(t){return t.machine===m.id});
-      h+='<div class="group"><div class="row between"><h3 style="color:var(--ink);font-size:15px">'+esc(m.name)+'</h3>'+(canWrite?'<button class="btn sm del" data-act="del" data-kind="machine" data-id="'+esc(m.id)+'">حذف دستگاه</button>':'')+'</div>';
-      if(!ts.length)h+='<small>کاری برای این دستگاه تعریف نشده است.</small>';
-      ts.forEach(function(t){
-        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small></span><span class="chip ty-'+esc(t.type)+'">'+esc(TYPES[t.type]||t.type)+'</span>'+
-          (canWrite?'<button class="btn sm del" data-act="del" data-kind="task" data-id="'+esc(t.id)+'">حذف</button>':'')+'</div>';
+    var byM={};
+    halls[hn].forEach(function(t){(byM[t.machine]=byM[t.machine]||[]).push(t)});
+    Object.keys(byM).forEach(function(mid){
+      var m=machineOf(mid);
+      h+='<div class="group"><h3>'+esc(m?m.name:'دستگاه حذف‌شده')+'</h3>';
+      byM[mid].forEach(function(t){
+        if(isEdit('task',t.id)){
+          h+='<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+          return;
+        }
+        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+editBtns('task',t.id)+'</div>';
       });
       h+='</div>';
     });
@@ -579,24 +842,26 @@ function viewPM(){
   return h;
 }
 
+/* ---------- چرخه شیفت ---------- */
 function viewShifts(){
   var len=cfg.cycle.length,a=cfg.anchor,h='';
-  h+='<section class="card stack"><h2>چرخه شیفت</h2><p class="hint">هر خانه یک روز از چرخه است. روی خانه بزنید تا بین روز، شب و استراحت عوض شود. چرخه‌ی پیش‌فرض: ۲ روز، ۲ شب، ۴ استراحت.</p><div class="cyc">';
+  h+='<section class="card stack"><h2>چرخه شیفت</h2><p class="hint">هر خانه یک روز از چرخه است. روی خانه بزنید تا بین روز، شب و استراحت عوض شود. چرخه‌ی پیش‌فرض: ۲ روز، ۲ شب، ۴ استراحت. این چرخه فقط برای پرسنل شیفتی است؛ روزکارها همیشه شنبه تا پنجشنبه سر کارند.</p><div class="cyc">';
   cfg.cycle.split('').forEach(function(c,i){
-    h+='<button class="sh-'+(c==='D'||c==='N'?c:'O')+'" data-act="cyc" data-i="'+i+'"'+(canWrite?'':' disabled')+'>'+SHL[c==='D'||c==='N'?c:'O']+'<small>روز '+fa(i+1)+'</small></button>';
+    var k=(c==='D'||c==='N')?c:'O';
+    h+='<button class="sh-'+k+'" data-act="cyc" data-i="'+i+'"'+dis()+'>'+SHL[k]+'<small>روز '+fa(i+1)+'</small></button>';
   });
   h+='</div>';
   if(canWrite)h+='<div class="row"><button class="btn" data-act="cycadd">افزودن روز</button><button class="btn" data-act="cycdel"'+(len<=2?' disabled':'')+'>حذف آخرین روز</button></div>';
   h+='</section>';
   h+='<section class="card stack"><h2>تاریخ شروع چرخه</h2><p class="hint">در این تاریخ، تیمی که «هم‌فاز با روز ۱» است، روز اول چرخه را شروع می‌کند.</p><div class="row">'+
-    '<div class="field"><label for="an-y">سال</label><input id="an-y" type="number" data-act="anchor" value="'+a.y+'" style="width:90px"'+(canWrite?'':' disabled')+'></div>'+
-    '<div class="field"><label for="an-m">ماه</label><select id="an-m" data-act="anchor"'+(canWrite?'':' disabled')+'>'+MONTHS.map(function(m,i){return '<option value="'+(i+1)+'"'+(a.m===i+1?' selected':'')+'>'+m+'</option>'}).join('')+'</select></div>'+
-    '<div class="field"><label for="an-d">روز</label><input id="an-d" type="number" min="1" max="31" data-act="anchor" value="'+a.d+'" style="width:72px"'+(canWrite?'':' disabled')+'></div></div></section>';
+    '<div class="field"><label for="an-y">سال</label><input id="an-y" type="number" data-act="anchor" value="'+a.y+'" style="width:90px"'+dis()+'></div>'+
+    '<div class="field"><label for="an-m">ماه</label><select id="an-m" data-act="anchor"'+dis()+'>'+MONTHS.map(function(m,i){return opt(i+1,m,a.m===i+1)}).join('')+'</select></div>'+
+    '<div class="field"><label for="an-d">روز</label><input id="an-d" type="number" min="1" max="31" data-act="anchor" value="'+a.d+'" style="width:72px"'+dis()+'></div></div></section>';
   h+='<section class="card stack"><h2>تیم‌ها</h2>';
   cfg.teams.forEach(function(t){
-    h+='<div class="list-row"><div class="field"><label for="tn-'+esc(t.id)+'">نام تیم</label><input id="tn-'+esc(t.id)+'" data-act="teamname" data-id="'+esc(t.id)+'" value="'+esc(t.name)+'" style="width:110px"'+(canWrite?'':' disabled')+'></div>'+
-      '<div class="field"><label for="to-'+esc(t.id)+'">هم‌فاز با</label><select id="to-'+esc(t.id)+'" data-act="teamoff" data-id="'+esc(t.id)+'"'+(canWrite?'':' disabled')+'>'+
-      Array.from({length:len},function(_,i){return '<option value="'+i+'"'+(mod(+t.off||0,len)===i?' selected':'')+'>روز '+fa(i+1)+' چرخه</option>'}).join('')+'</select></div>'+
+    h+='<div class="list-row"><div class="field"><label for="tn-'+esc(t.id)+'">نام تیم</label><input id="tn-'+esc(t.id)+'" data-act="teamname" data-id="'+esc(t.id)+'" value="'+esc(t.name)+'" style="width:110px"'+dis()+'></div>'+
+      '<div class="field"><label for="to-'+esc(t.id)+'">هم‌فاز با</label><select id="to-'+esc(t.id)+'" data-act="teamoff" data-id="'+esc(t.id)+'"'+dis()+'>'+
+      Array.from({length:len},function(_,i){return opt(i,'روز '+fa(i+1)+' چرخه',mod(+t.off||0,len)===i)}).join('')+'</select></div>'+
       (canWrite&&cfg.teams.length>1?'<button class="btn sm del" data-act="del" data-kind="team" data-id="'+esc(t.id)+'">حذف</button>':'')+'</div>';
   });
   if(canWrite)h+='<div class="row"><button class="btn" data-act="addteam">افزودن تیم</button></div>';
@@ -609,58 +874,123 @@ function viewShifts(){
     for(var i=0;i<14;i++){var s=teamShift(t,todayJ+i);h+='<td><span class="sh-'+s+'">'+(s==='O'?'—':SHL[s])+'</span></td>'}
     h+='</tr>';
   });
-  h+='</tbody></table></div></section>';
-  return h;
+  return h+'</tbody></table></div></section>';
 }
 
+/* ---------- تنظیمات ---------- */
+var LISTS_META=[
+  {k:'roles',title:'سمت‌ها',hint:'در تعریف پرسنل، هر نفر می‌تواند چند سمت داشته باشد. انتخاب سمت اجباری نیست.',ph:'مثلاً سرپرست شیفت'},
+  {k:'halls',title:'سالن‌ها',hint:'در تعریف دستگاه و کار، سالن از همین فهرست انتخاب می‌شود.',ph:'مثلاً سالن نورد فویل'},
+  {k:'types',title:'نوع کار',hint:'نوع هر کار (مثل PM یا کنترل) از همین فهرست انتخاب می‌شود.',ph:'مثلاً روغن‌کاری'}
+];
+function machineFormHtml(p,m){
+  var halls=allHalls();
+  return '<div class="row"><div class="field"><label for="'+p+'-name">نام دستگاه</label><input id="'+p+'-name" autocomplete="off" value="'+esc(m?m.name:'')+'"></div>'+
+    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!m||!m.hall)+halls.map(function(x){return opt(x,x,m&&m.hall===x)}).join('')+'</select></div></div>';
+}
+function viewSettings(){
+  var h='<section class="card stack"><h2>تنظیمات</h2><p class="hint">این‌ها را یک‌بار تعریف کنید. حذف یا تغییر نام یک گزینه روی فرم‌ها اثر می‌گذارد: تغییر نام در همه‌ی موارد ثبت‌شده اعمال می‌شود، ولی حذف، مقدار قبلی افراد و دستگاه‌ها را دست‌نخورده می‌گذارد.</p></section>';
+  LISTS_META.forEach(function(m){
+    var arr=cfg.lists[m.k]||[];
+    h+='<section class="card stack"><h2>'+m.title+'</h2><p class="hint">'+m.hint+'</p>';
+    h+=arr.length?'<div class="opts">'+arr.map(function(x,i){
+      var id=m.k+':'+i;
+      if(isEdit('list',id))return '<span class="opt"><input id="le-input" data-list="'+m.k+'" data-i="'+i+'" value="'+esc(x)+'" maxlength="60" style="width:150px"><button class="ed" data-act="lstsave" data-list="'+m.k+'" data-i="'+i+'">ذخیره</button><button data-act="editcancel">انصراف</button></span>';
+      return '<span class="opt">'+esc(x)+(canWrite?'<button class="ed" data-act="edit" data-kind="list" data-id="'+id+'" aria-label="ویرایش '+esc(x)+'">ویرایش</button><button data-act="del" data-kind="listitem" data-list="'+m.k+'" data-i="'+i+'" aria-label="حذف '+esc(x)+'">×</button>':'')+'</span>';
+    }).join('')+'</div>':'<div class="empty">هنوز گزینه‌ای تعریف نشده است.</div>';
+    if(canWrite)h+='<div class="row"><div class="field"><label for="ls-'+m.k+'">گزینه‌ی جدید</label><input id="ls-'+m.k+'" maxlength="60" placeholder="'+esc(m.ph)+'" autocomplete="off"></div><button class="btn pri" data-act="lstadd" data-list="'+m.k+'">افزودن</button></div>';
+    h+='</section>';
+  });
+  h+='<section class="card stack"><h2>دستگاه‌ها</h2><p class="hint">هر دستگاه یک‌بار تعریف می‌شود و بعد در فرم کارها انتخاب می‌شود. حذف دستگاه، کارهای آن را هم حذف می‌کند.</p>';
+  if(canWrite)h+=machineFormHtml('nm',null)+'<div class="row"><button class="btn pri" data-act="addmachine">افزودن دستگاه</button></div>';
+  if(!cfg.machines.length)h+='<div class="empty">هنوز دستگاهی ثبت نشده است.</div>';
+  var byH={};
+  cfg.machines.forEach(function(m){(byH[m.hall||'بدون سالن']=byH[m.hall||'بدون سالن']||[]).push(m)});
+  Object.keys(byH).forEach(function(hn){
+    h+='<div class="group"><h3>'+esc(hn)+'</h3>';
+    byH[hn].forEach(function(m){
+      if(isEdit('machine',m.id)){
+        h+='<div class="card flat stack">'+machineFormHtml('em',m)+'<div class="row"><button class="btn pri" data-act="savemachine" data-id="'+esc(m.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+        return;
+      }
+      var n=cfg.tasks.filter(function(t){return t.machine===m.id}).length;
+      h+='<div class="list-row"><span class="grow"><b>'+esc(m.name)+'</b> <small>'+fa(n)+' کار</small></span>'+editBtns('machine',m.id)+'</div>';
+    });
+    h+='</div>';
+  });
+  return h+'</section>';
+}
+
+/* ---------- ورود ---------- */
 function viewSetup(){
-  return '<div class="card setup"><h2>اتصال به Supabase انجام نشده</h2><p>فایل <code>config.js</code> را باز کنید و <code>SUPABASE_URL</code> و <code>SUPABASE_ANON_KEY</code> را از Supabase › Project Settings › API وارد کنید.</p></div>';
+  return '<div class="card setup"><h2>اتصال به Supabase انجام نشده</h2><p>فایل <code>config.js</code> را باز کنید و <code>SUPABASE_URL</code> و <code>SUPABASE_ANON_KEY</code> را وارد کنید.</p></div>';
 }
 function viewLogin(){
   return '<form class="card login" id="login-form"><h2>ورود</h2><div class="field"><label for="li-email">ایمیل</label><input id="li-email" type="email" autocomplete="username" dir="ltr"></div><div class="field"><label for="li-pass">رمز عبور</label><input id="li-pass" type="password" autocomplete="current-password" dir="ltr"></div><div class="err" role="alert">'+esc(authErr)+'</div><button class="btn pri" type="submit">ورود</button></form>';
 }
-var VIEWS={today:viewToday,month:viewMonth,staff:viewStaff,pm:viewPM,shifts:viewShifts};
+var VIEWS={today:viewToday,month:viewMonth,staff:viewStaff,pm:viewPM,shifts:viewShifts,settings:viewSettings};
 
-/* ---------- render ---------- */
+/* ---------- رندر ---------- */
 function editing(){
   var a=document.activeElement;
   return a&&app.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox';
 }
 function renderTop(){
-  var el=$('#status'),t,c='status';
+  var el=$('#status'),t,c='status',n=outbox.length;
   if(!sb){t='تنظیم نشده';c+=' bad'}
   else if(!session){t='خارج از حساب'}
   else if(errMsg==='readonly'){t='فقط‌خواندنی';c+=' bad'}
   else if(errMsg){t='خطا در ذخیره';c+=' bad'}
-  else if(!online){t='آفلاین (آخرین داده ذخیره‌شده)';c+=' bad'}
+  else if(!online){t='آفلاین'+(n?' · '+fa(n)+' تغییر در صف ارسال':' · آخرین داده‌ی ذخیره‌شده');c+=' bad'}
+  else if(n){t='در حال ارسال '+fa(n)+' تغییر…'}
   else if(!loadedCfg){t=slow?'اتصال برقرار نشد':'در حال بارگذاری…';if(slow)c+=' bad'}
   else if(!canWrite){t='فقط مشاهده'}
-  else{t='همگام';c+=' ok'}
+  else{t='همگام'+(lastSync?' · '+timeFa(lastSync):'');c+=' ok'}
   el.textContent=t;el.className=c;
   var out=$('#signout');if(out)out.hidden=!session;
+  var sbn=$('#settingsBtn');
+  if(sbn){sbn.hidden=!session;if(view==='settings')sbn.setAttribute('aria-current','page');else sbn.removeAttribute('aria-current')}
   document.querySelectorAll('#nav a').forEach(function(a){
     if(a.dataset.v===view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
   });
 }
 function render(force){
-  if(!force&&editing()){dirty=true;return}
+  if(!force&&(editing()||edit)){dirty=true;return}
   dirty=false;
   renderTop();
   if(!sb){app.innerHTML=viewSetup();return}
   if(!session){app.innerHTML=viewLogin();return}
+  var openMs=[].map.call(app.querySelectorAll('details.ms[open]'),function(d){return d.dataset.ms});
   app.innerHTML=(VIEWS[view]||VIEWS.today)();
-  var f=$('#nt-freq');if(f)syncFreq();
+  openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
+  ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
 }
-function syncFreq(){
-  var f=$('#nt-freq').value;
-  $('#nt-wd-f').hidden=f!=='weekly';$('#nt-md-f').hidden=f!=='monthly';
+function syncFreq(p){
+  var f=$('#'+p+'-freq').value;
+  $('#'+p+'-wd-f').hidden=f!=='weekly';$('#'+p+'-md-f').hidden=f!=='monthly';
 }
 document.addEventListener('submit',function(e){if(e.target.id==='login-form'){e.preventDefault();signIn()}});
-document.addEventListener('click',function(e){if(e.target.id==='signout')signOut()});
-document.addEventListener('focusout',function(){setTimeout(function(){if(dirty&&!editing())render(true)},60)});
+document.addEventListener('click',function(e){
+  if(e.target.id==='signout')signOut();
+  document.querySelectorAll('details.ms[open]').forEach(function(d){if(!d.contains(e.target))d.removeAttribute('open')});
+});
+document.addEventListener('focusout',function(){setTimeout(function(){if(dirty&&!editing()&&!edit)render(true)},60)});
 
-/* ---------- events ---------- */
+/* ---------- رویدادها ---------- */
 function val(id){var e=document.getElementById(id);return e?e.value.trim():''}
+function renameItem(k,i,nw){
+  var old=cfg.lists[k][i];
+  cfg.lists[k][i]=nw;
+  if(k==='roles')cfg.staff.forEach(function(s){s.roles=rolesOf(s).map(function(x){return x===old?nw:x})});
+  if(k==='halls')cfg.machines.forEach(function(m){if(m.hall===old)m.hall=nw});
+  if(k==='types')cfg.tasks.forEach(function(t){if(t.type===old)t.type=nw});
+}
+function saveListEdit(k,i,v){
+  v=(v||'').trim().slice(0,60);
+  if(!v){notify('نام نمی‌تواند خالی باشد.',true);return}
+  if(cfg.lists[k].indexOf(v)>=0&&cfg.lists[k][i]!==v){notify('این گزینه از قبل هست.',true);return}
+  mutate(function(){renameItem(k,i,v)});
+}
 app.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');
   if(!b||b.tagName==='SELECT'||b.tagName==='INPUT')return;
@@ -673,83 +1003,131 @@ app.addEventListener('click',function(e){
   }
   if(act==='mtoday'){gotoMonth(tj.jy,tj.jm,todayJ);return}
   if(!canWrite)return;
+  if(act==='edit'){edit={kind:b.dataset.kind,id:b.dataset.id};render(true);return}
+  if(act==='editcancel'){edit=null;render(true);return}
   if(act==='del'){
     if(!b.classList.contains('armed')){
       var old=b.textContent;b.textContent='تأیید حذف';b.classList.add('armed');
       setTimeout(function(){if(b.isConnected){b.textContent=old;b.classList.remove('armed')}},3000);return;
     }
     var id=b.dataset.id,k=b.dataset.kind;
-    if(k==='staff')cfg.staff=cfg.staff.filter(function(s){return s.id!==id});
-    if(k==='machine'){cfg.machines=cfg.machines.filter(function(m){return m.id!==id});cfg.tasks=cfg.tasks.filter(function(t){return t.machine!==id})}
-    if(k==='task')cfg.tasks=cfg.tasks.filter(function(t){return t.id!==id});
-    if(k==='team'){cfg.teams=cfg.teams.filter(function(t){return t.id!==id});cfg.staff.forEach(function(s){if(s.team===id)s.team=''})}
-    commitCfg();return;
+    mutate(function(){
+      if(k==='staff')cfg.staff=cfg.staff.filter(function(s){return s.id!==id});
+      if(k==='machine'){cfg.machines=cfg.machines.filter(function(m){return m.id!==id});cfg.tasks=cfg.tasks.filter(function(t){return t.machine!==id})}
+      if(k==='task')cfg.tasks=cfg.tasks.filter(function(t){return t.id!==id});
+      if(k==='team'){cfg.teams=cfg.teams.filter(function(t){return t.id!==id});cfg.staff.forEach(function(s){if(s.team===id)s.team=''})}
+      if(k==='listitem'&&cfg.lists[b.dataset.list])cfg.lists[b.dataset.list].splice(+b.dataset.i,1);
+    });
+    return;
   }
   if(act==='addstaff'){
-    var n=val('ns-name');if(!n)return;
-    cfg.staff.push({id:uid(),name:n,role:val('ns-role'),team:val('ns-team')});commitCfg();return;
+    var sv=readStaff('ns');if(!sv)return;
+    var dd=document.querySelector('details[data-ms="ms-ns"]');if(dd)dd.removeAttribute('open');
+    mutate(function(){cfg.staff.push(Object.assign({id:uid()},sv))});return;
+  }
+  if(act==='savestaff'){
+    var sv2=readStaff('es');if(!sv2)return;
+    mutate(function(){var s=cfg.staff.find(function(q){return q.id===b.dataset.id});if(s)Object.assign(s,sv2)});return;
   }
   if(act==='addmachine'){
-    var mn=val('nm-name');if(!mn)return;
-    cfg.machines.push({id:uid(),name:mn,hall:val('nm-hall')||'بدون سالن'});commitCfg();return;
+    var mn=val('nm-name');if(!mn){notify('نام دستگاه را بنویسید.',true);return}
+    mutate(function(){cfg.machines.push({id:uid(),name:mn,hall:val('nm-hall')})});return;
+  }
+  if(act==='savemachine'){
+    var en=val('em-name');if(!en){notify('نام دستگاه را بنویسید.',true);return}
+    mutate(function(){var m=machineOf(b.dataset.id);if(m){m.name=en;m.hall=val('em-hall')}});return;
   }
   if(act==='addtask'){
-    var tt=val('nt-title'),mid=val('nt-machine');if(!tt||!mid)return;
-    cfg.tasks.push({id:uid(),machine:mid,title:tt,type:val('nt-type'),freq:val('nt-freq'),weekday:+val('nt-wd')||0,monthDay:Math.max(1,Math.min(31,+val('nt-md')||1))});
-    commitCfg();return;
+    var tv=readTask('nt');if(!tv)return;
+    mutate(function(){cfg.tasks.push(Object.assign({id:uid()},tv))});return;
   }
+  if(act==='savetask'){
+    var tv2=readTask('et');if(!tv2)return;
+    mutate(function(){var t=cfg.tasks.find(function(q){return q.id===b.dataset.id});if(t)Object.assign(t,tv2)});return;
+  }
+  if(act==='lstadd'){
+    var lk=b.dataset.list,inp=document.getElementById('ls-'+lk),tv3=inp?inp.value.trim().slice(0,60):'';
+    if(!tv3||!cfg.lists[lk])return;
+    if(cfg.lists[lk].indexOf(tv3)>=0){notify('این گزینه از قبل هست.',true);return}
+    if(cfg.lists[lk].length>=100){notify('حداکثر ۱۰۰ گزینه مجاز است.',true);return}
+    mutate(function(){cfg.lists[lk].push(tv3)});return;
+  }
+  if(act==='lstsave'){saveListEdit(b.dataset.list,+b.dataset.i,val('le-input'));return}
   if(act==='cyc'){
-    var i=+b.dataset.i,c=cfg.cycle.split(''),nx={D:'N',N:'O',O:'D'};
-    c[i]=nx[c[i]]||'D';cfg.cycle=c.join('');commitCfg();return;
+    var i=+b.dataset.i,nx={D:'N',N:'O',O:'D'};
+    mutate(function(){var c=cfg.cycle.split('');c[i]=nx[c[i]]||'D';cfg.cycle=c.join('')});return;
   }
-  if(act==='cycadd'){if(cfg.cycle.length<14){cfg.cycle+='O';commitCfg()}return}
-  if(act==='cycdel'){if(cfg.cycle.length>2){cfg.cycle=cfg.cycle.slice(0,-1);commitCfg()}return}
-  if(act==='addteam'){cfg.teams.push({id:uid(),name:'تیم '+fa(cfg.teams.length+1),off:0});commitCfg();return}
+  if(act==='cycadd'){if(cfg.cycle.length<14)mutate(function(){cfg.cycle+='O'});return}
+  if(act==='cycdel'){if(cfg.cycle.length>2)mutate(function(){cfg.cycle=cfg.cycle.slice(0,-1)});return}
+  if(act==='addteam'){mutate(function(){cfg.teams.push({id:uid(),name:'تیم '+fa(cfg.teams.length+1),off:0})});return}
 });
 app.addEventListener('change',function(e){
   var el=e.target,act=el.dataset.act;
   if(!act)return;
-  if(act==='freqsel'){syncFreq();return}
-  if(!canWrite)return;
+  if(act==='freqsel'){syncFreq(el.id.slice(0,2));return}
+  if(act==='taskhall'){
+    var p=el.id.slice(0,2),ms=document.getElementById(p+'-machine');
+    if(ms)ms.innerHTML=machineOptions(el.value,'');return;
+  }
+  if(act==='kindsel'){
+    var tm=document.getElementById(el.id.slice(0,2)+'-team');if(tm)tm.disabled=el.value==='day';return;
+  }
+  if(act==='msform'){
+    var d1=el.closest('details'),v1=msChecked(d1);d1.querySelector('.ms-t').textContent=v1.length?v1.join('، '):MS_PH;return;
+  }
+  if(!canWrite){if(el.type==='checkbox')el.checked=!el.checked;return}
   if(act==='tick'){
     var kk=el.dataset.key,dk='d:'+kk;
-    if(el.checked){monthState.done[kk]=true;patchMonth({[dk]:true},[])}else{delete monthState.done[kk];patchMonth({},[dk])}
+    if(el.checked){var sv={by:userName(),at:new Date().toISOString()};monthState.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[])}
+    else{delete monthState.done[kk];patchMonth({},[dk])}
     render(true);return;
   }
   if(act==='ovr'){
-    var x=d2j(+el.dataset.j),k=x.jd+'_'+el.dataset.s;
-    var ok='o:'+k;
-    if(el.value){monthState.ovr[k]=el.value;patchMonth({[ok]:el.value},[])}else{delete monthState.ovr[k];patchMonth({},[ok])}
+    var x=d2j(+el.dataset.j),k=x.jd+'_'+el.dataset.s,ok='o:'+k;
+    if(el.value){monthState.ovr[k]=el.value;var o2={};o2[ok]=el.value;patchMonth(o2,[])}
+    else{delete monthState.ovr[k];patchMonth({},[ok])}
     render(true);return;
   }
-  if(act==='staffteam'){var s=cfg.staff.find(function(q){return q.id===el.dataset.id});if(s){s.team=el.value;commitCfg()}return}
-  if(act==='teamname'){var t=teamOf(el.dataset.id);if(t&&el.value.trim()){t.name=el.value.trim();commitCfg()}return}
-  if(act==='teamoff'){var t2=teamOf(el.dataset.id);if(t2){t2.off=+el.value;commitCfg()}return}
+  if(act==='teamname'){var t=teamOf(el.dataset.id);if(t&&el.value.trim()){var nm=el.value.trim();mutate(function(){t.name=nm})}return}
+  if(act==='teamoff'){var t2=teamOf(el.dataset.id);if(t2){var ov=+el.value;mutate(function(){t2.off=ov})}return}
   if(act==='anchor'){
     var y=+val('an-y'),m=+val('an-m'),d=+val('an-d');
-    if(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=31){cfg.anchor={y:y,m:m,d:d};commitCfg()}
+    if(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=31)mutate(function(){cfg.anchor={y:y,m:m,d:d}});
     return;
   }
 });
+app.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&e.target.id&&e.target.id.indexOf('ls-')===0){
+    e.preventDefault();
+    var bt=app.querySelector('[data-act="lstadd"][data-list="'+e.target.id.slice(3)+'"]');
+    if(bt)bt.click();
+  }
+  if(e.target.id==='le-input'){
+    if(e.key==='Enter'){e.preventDefault();saveListEdit(e.target.dataset.list,+e.target.dataset.i,e.target.value)}
+    if(e.key==='Escape'){edit=null;render(true)}
+  }
+});
 
-/* ---------- routing ---------- */
+/* ---------- مسیریابی ---------- */
 function route(){
   var h=(location.hash||'').replace('#','');
   view=VIEWS_ORDER.indexOf(h)>=0?h:'today';
+  edit=null;
   if(view==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){cur={jy:tj.jy,jm:tj.jm};selJ=todayJ;watchMonth()}
   render(true);
 }
 window.addEventListener('hashchange',route);
 
-/* ---------- boot ---------- */
+/* ---------- شروع ---------- */
 function boot(){
-  var l=lsGet('config');if(l){cfg=normalize(l);calcAnchor()}
+  var l=lsGet(CFGKEY);if(l&&l.data){cfg=normalize(l.data);cfgVer=l.ver||null;calcAnchor()}
+  loadOutbox();
   watchMonth();
-  window.addEventListener('online',function(){online=true;refresh()});
+  window.addEventListener('online',function(){online=true;flush().then(refresh)});
   window.addEventListener('offline',function(){online=false;renderTop()});
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)refresh()});
-  if(!CFG.SUPABASE_URL||!CFG.SUPABASE_ANON_KEY||!window.supabase){render(true);return}
-  sb=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)flush().then(refresh)});
+  if(!CFGKEYS.SUPABASE_URL||!CFGKEYS.SUPABASE_ANON_KEY||!window.supabase){render(true);return}
+  sb=window.supabase.createClient(CFGKEYS.SUPABASE_URL,CFGKEYS.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
   sb.auth.onAuthStateChange(function(ev,s){
     if(ev==='INITIAL_SESSION'||ev==='SIGNED_IN'||ev==='SIGNED_OUT')startSession(s);
   });
@@ -759,6 +1137,7 @@ function boot(){
 route();
 boot();
 })();
+
 </script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}

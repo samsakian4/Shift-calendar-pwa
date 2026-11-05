@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>تقویم شیفت و PM</title>
+<meta name="theme-color" content="#1f5f8b">
+<meta name="description" content="تقویم شمسی شیفت ۱۲ ساعته پرسنل و برنامه PM دستگاه‌ها">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+html{-webkit-text-size-adjust:100%}
+
+/* Layout: sticky-free single column; top bar with tabs, then one working view at a time.
+   Palette: cool aluminium greys, steel-blue accent, day=amber, night=indigo, semantic green/red. */
+:root{
+  --bg:#edf0f3; --surface:#ffffff; --surface2:#f4f6f8; --ink:#161b22; --ink2:#4b5663; --line:#d3dae1;
+  --accent:#1f5f8b; --accent-ink:#ffffff;
+  --day:#8a5a0c; --day-bg:#f6e7c6; --night:#3f4396; --night-bg:#e1e2f5; --off:#5d6875; --off-bg:#e6eaee;
+  --good:#1c7248; --good-bg:#d9f0e3; --crit:#a93226; --crit-bg:#f7dedb; --warn:#8a5a0c; --warn-bg:#f6e7c6;
+  --font:'Vazirmatn',Tahoma,system-ui,sans-serif; --display:'Lalezar','Vazirmatn',Tahoma,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161b; --surface:#1a2027; --surface2:#222a33; --ink:#e8ecf0; --ink2:#a2adba; --line:#2f3944;
+    --accent:#6bb0e0; --accent-ink:#0d1a24;
+    --day:#efc06e; --day-bg:#3a2e14; --night:#aab0f0; --night-bg:#262846; --off:#a2adba; --off-bg:#262e37;
+    --good:#5fc08c; --good-bg:#17342a; --crit:#f08a7e; --crit-bg:#3d1f1c; --warn:#efc06e; --warn-bg:#3a2e14;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161b; --surface:#1a2027; --surface2:#222a33; --ink:#e8ecf0; --ink2:#a2adba; --line:#2f3944;
+  --accent:#6bb0e0; --accent-ink:#0d1a24;
+  --day:#efc06e; --day-bg:#3a2e14; --night:#aab0f0; --night-bg:#262846; --off:#a2adba; --off-bg:#262e37;
+  --good:#5fc08c; --good-bg:#17342a; --crit:#f08a7e; --crit-bg:#3d1f1c; --warn:#efc06e; --warn-bg:#3a2e14;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:15px; line-height:1.7; direction:rtl;
+  padding-block:12px 40px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:980px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3,p{margin:0}
+h2{font-size:17px;font-weight:700}
+h3{font-size:15px;font-weight:700}
+small,.muted{color:var(--ink2)}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
+.brand{font-family:var(--display);font-size:26px;line-height:1.2}
+.status{font-size:12px;padding:2px 10px;border-radius:4px;background:var(--off-bg);color:var(--off)}
+.status.ok{background:var(--good-bg);color:var(--good)}
+.status.bad{background:var(--crit-bg);color:var(--crit)}
+.nav{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);padding-bottom:0}
+.nav a{padding:8px 14px;text-decoration:none;color:var(--ink2);white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px}
+.nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;min-width:0}
+.card.flat{background:var(--surface2)}
+.stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.row.between{justify-content:space-between;align-items:center}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:2px;min-width:0}
+.field label{font-size:12px;color:var(--ink2)}
+input,select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0;max-width:100%}
+input[type="checkbox"]{width:20px;height:20px;padding:0;accent-color:var(--accent);flex:none}
+.btn{padding:6px 12px;border:1px solid var(--line);background:var(--surface);border-radius:6px;cursor:pointer}
+.btn:hover{background:var(--surface2)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{padding:2px 8px;font-size:13px}
+.btn.del.armed{background:var(--crit);border-color:var(--crit);color:#fff}
+button:disabled,input:disabled,select:disabled{opacity:.55;cursor:not-allowed}
+
+.chip{display:inline-block;font-size:12px;line-height:1.6;padding:0 8px;border-radius:4px;white-space:nowrap}
+.sh-D{background:var(--day-bg);color:var(--day)}
+.sh-N{background:var(--night-bg);color:var(--night)}
+.sh-O{background:var(--off-bg);color:var(--off)}
+.sh-L{background:var(--warn-bg);color:var(--warn)}
+.ty-pm{background:var(--night-bg);color:var(--night)}
+.ty-check{background:var(--off-bg);color:var(--off)}
+.ty-maint{background:var(--day-bg);color:var(--day)}
+.alert{background:var(--crit-bg);color:var(--crit);padding:2px 8px;border-radius:4px;font-size:13px}
+.empty{padding:20px;border:1px dashed var(--line);border-radius:6px;color:var(--ink2);text-align:center}
+
+.date{font-family:var(--display);font-size:clamp(30px,7vw,46px);line-height:1.25;font-weight:400}
+.eyebrow{font-size:13px;color:var(--ink2)}
+.shift-card{display:flex;flex-direction:column;gap:8px;border-inline-start:4px solid var(--line)}
+.shift-card.D{border-inline-start-color:var(--day)}
+.shift-card.N{border-inline-start-color:var(--night)}
+.names{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;padding:0;list-style:none}
+.names li small{margin-inline-start:4px}
+.meter{height:8px;background:var(--off-bg);border-radius:4px;overflow:hidden}
+.meter>i{display:block;height:100%;background:var(--good)}
+
+.group{display:flex;flex-direction:column;gap:6px}
+.group>h3{font-size:13px;color:var(--ink2);font-weight:500;border-bottom:1px solid var(--line);padding-bottom:2px}
+.task{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.task:last-child{border-bottom:0}
+.task .t-main{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
+.task.done .t-main b{text-decoration:line-through;color:var(--ink2);font-weight:400}
+.task .t-late{font-size:12px;color:var(--crit)}
+
+.cal-head{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px;color:var(--ink2)}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cell{border:1px solid var(--line);background:var(--surface);border-radius:6px;min-height:72px;padding:4px;display:flex;flex-direction:column;gap:3px;text-align:start;cursor:pointer;min-width:0;overflow:hidden}
+.cell.blank{visibility:hidden;border:0}
+.cell.fri .dn{color:var(--crit)}
+.cell.today{outline:2px solid var(--accent);outline-offset:-1px}
+.cell.sel{background:var(--surface2);border-color:var(--accent)}
+.cell .dn{font-size:13px;font-weight:700;line-height:1.3}
+.cell .sh{display:flex;flex-direction:column;gap:2px}
+.cell .sh i{display:block;font-style:normal;font-size:10px;line-height:1.5;padding:0 3px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell .sh .s-D{background:var(--day-bg);color:var(--day)}
+.cell .sh .s-N{background:var(--night-bg);color:var(--night)}
+.cell .pm{font-size:10px;color:var(--ink2);margin-top:auto;line-height:1.3}
+.cell .pm.ok{color:var(--good)}
+.cell .pm.late{color:var(--crit);font-weight:700}
+@media (min-width:640px){
+  .cell{min-height:92px;padding:6px}
+  .cell .sh i{font-size:12px;padding:0 6px}
+  .cell .pm{font-size:12px}
+}
+
+.list-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.list-row:last-child{border-bottom:0}
+.list-row .grow{flex:1;min-width:140px}
+.scroll{overflow-x:auto}
+.cyc{display:flex;flex-wrap:wrap;gap:4px}
+.cyc button{border:0;border-radius:4px;padding:4px 10px;min-width:56px;cursor:pointer;text-align:center}
+.cyc button small{display:block;font-size:10px;color:inherit;opacity:.8;line-height:1.2}
+table.prev{border-collapse:collapse;font-size:12px;min-width:560px;width:100%}
+table.prev th,table.prev td{padding:3px 4px;text-align:center;border-bottom:1px solid var(--line)}
+table.prev th:first-child,table.prev td:first-child{text-align:start;white-space:nowrap}
+table.prev td span{display:block;border-radius:3px;padding:0 2px}
+table.prev th.tdy{color:var(--accent);font-weight:700}
+.hint{font-size:13px;color:var(--ink2)}
+@media (prefers-reduced-motion:no-preference){.meter>i{transition:width .3s}}
+
+@font-face{font-family:'Vazirmatn';font-weight:400;font-display:swap;src:url(vendor/fonts/vazirmatn-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Vazirmatn';font-weight:500;font-display:swap;src:url(vendor/fonts/vazirmatn-latin-500-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Vazirmatn';font-weight:700;font-display:swap;src:url(vendor/fonts/vazirmatn-latin-700-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Vazirmatn';font-weight:400;font-display:swap;src:url(vendor/fonts/vazirmatn-arabic-400-normal.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Vazirmatn';font-weight:500;font-display:swap;src:url(vendor/fonts/vazirmatn-arabic-500-normal.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Vazirmatn';font-weight:700;font-display:swap;src:url(vendor/fonts/vazirmatn-arabic-700-normal.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Lalezar';font-weight:400;font-display:swap;src:url(vendor/fonts/lalezar-arabic-400-normal.woff2) format('woff2')}
+
+.login{max-width:380px;margin:24px auto;display:flex;flex-direction:column;gap:12px}
+.login input{width:100%}
+.err{color:var(--crit);font-size:13px;min-height:1.4em}
+.top-actions{display:flex;gap:8px;align-items:center}
+.setup{max-width:560px;margin:24px auto;line-height:1.9}
+.setup code{direction:ltr;unicode-bidi:isolate;background:var(--surface2);padding:0 4px;border-radius:3px}
+
+</style>
+</head>
+<body>
+<div class="wrap" lang="fa" dir="rtl">
+  <header class="top">
+    <div class="brand">تقویم شیفت و PM</div>
+    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><button class="btn sm" id="signout" hidden>خروج</button></div>
+  </header>
+  <nav class="nav" id="nav" aria-label="بخش‌ها">
+    <a href="#today" data-v="today">امروز</a>
+    <a href="#month" data-v="month">تقویم ماه</a>
+    <a href="#staff" data-v="staff">پرسنل</a>
+    <a href="#pm" data-v="pm">دستگاه‌ها و PM</a>
+    <a href="#shifts" data-v="shifts">چرخه شیفت</a>
+  </nav>
+  <main id="app" class="stack"></main>
+</div>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+
+(function(){
+'use strict';
+//<jal>
+var BREAKS=[-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178];
+function div(a,b){return ~~(a/b)}
+function mod(a,b){return a-~~(a/b)*b}
+function jalCal(jy,withoutLeap){
+  var bl=BREAKS.length,gy=jy+621,leapJ=-14,jp=BREAKS[0],jm,jump=0,leap,leapG,march,n,i;
+  for(i=1;i<bl;i+=1){jm=BREAKS[i];jump=jm-jp;if(jy<jm)break;leapJ=leapJ+div(jump,33)*8+div(mod(jump,33),4);jp=jm}
+  n=jy-jp;
+  leapJ=leapJ+div(n,33)*8+div(mod(n,33)+3,4);
+  if(mod(jump,33)===4&&jump-n===4)leapJ+=1;
+  leapG=div(gy,4)-div((div(gy,100)+1)*3,4)-150;
+  march=20+leapJ-leapG;
+  if(withoutLeap)return{gy:gy,march:march};
+  if(jump-n<6)n=n-jump+div(jump+4,33)*33;
+  leap=mod(mod(n+1,33)-1,4);
+  if(leap===-1)leap=4;
+  return{leap:leap,gy:gy,march:march};
+}
+function g2d(gy,gm,gd){
+  var d=div((gy+div(gm-8,6)+100100)*1461,4)+div(153*mod(gm+9,12)+2,5)+gd-34840408;
+  d=d-div(div(gy+100100+div(gm-8,6),100)*3,4)+752;
+  return d;
+}
+function d2g(jdn){
+  var j=4*jdn+139361631;
+  j=j+div(div(4*jdn+183187720,146097)*3,4)*4-3908;
+  var i=div(mod(j,1461),4)*5+308;
+  var gd=div(mod(i,153),5)+1,gm=mod(div(i,153),12)+1,gy=div(j,1461)-100100+div(8-gm,6);
+  return{gy:gy,gm:gm,gd:gd};
+}
+function j2d(jy,jm,jd){
+  var r=jalCal(jy,true);
+  return g2d(r.gy,3,r.march)+(jm-1)*31-div(jm,7)*(jm-7)+jd-1;
+}
+function d2j(jdn){
+  var gy=d2g(jdn).gy,jy=gy-621,r=jalCal(jy,false),jdn1f=g2d(gy,3,r.march),jd,jm,k;
+  k=jdn-jdn1f;
+  if(k>=0){
+    if(k<=185){jm=1+div(k,31);jd=mod(k,31)+1;return{jy:jy,jm:jm,jd:jd}}
+    k-=186;
+  }else{
+    jy-=1;k+=179;
+    if(r.leap===1)k+=1;
+  }
+  jm=7+div(k,30);jd=mod(k,30)+1;
+  return{jy:jy,jm:jm,jd:jd};
+}
+function satIdx(jdn){return mod(jdn+2,7)}
+function monthLen(jy,jm){return (jm===12?j2d(jy+1,1,1):j2d(jy,jm+1,1))-j2d(jy,jm,1)}
+//</jal>
+
+var MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+var WD=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+var WDS=['ش','ی','د','س','چ','پ','ج'];
+var TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
+var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه'};
+var SHL={D:'روز',N:'شب',O:'استراحت',L:'مرخصی'};
+var VIEWS_ORDER=['today','month','staff','pm','shifts'];
+
+var $=function(s){return document.querySelector(s)};
+var fa=function(s){return String(s).replace(/\d/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[d]})};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var pad=function(n){return String(n).padStart(2,'0')};
+var uid=function(){return Math.random().toString(36).slice(2,9)};
+var clone=function(o){return JSON.parse(JSON.stringify(o))};
+var app=$('#app');
+
+function defaults(){
+  return{
+    cycle:'DDNNOOOO',
+    anchor:{y:1405,m:1,d:1},
+    teams:[{id:'ta',name:'الف',off:0},{id:'tb',name:'ب',off:2},{id:'tc',name:'ج',off:4},{id:'td',name:'د',off:6}],
+    staff:[],machines:[],tasks:[]
+  };
+}
+function normalize(d){
+  var b=defaults(),o=Object.assign({},b,d||{});
+  ['teams','staff','machines','tasks'].forEach(function(k){if(!Array.isArray(o[k]))o[k]=b[k]});
+  if(typeof o.cycle!=='string'||o.cycle.length<2)o.cycle=b.cycle;
+  if(!o.anchor||!o.anchor.y)o.anchor=b.anchor;
+  return o;
+}
+
+var now=new Date();
+var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
+var tj=d2j(todayJ);
+var cfg=normalize(),monthState={done:{},ovr:{}};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='today';
+var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false;
+var anchorJ=0;
+
+function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
+calcAnchor();
+function teamOf(id){return cfg.teams.find(function(t){return t.id===id})}
+function machineOf(id){return cfg.machines.find(function(m){return m.id===id})}
+function teamShift(t,j){
+  var c=cfg.cycle,ch=c[mod(j-anchorJ+(+t.off||0),c.length)];
+  return ch==='D'||ch==='N'?ch:'O';
+}
+function ovrOf(j,sid){
+  var x=d2j(j);
+  if(x.jy!==cur.jy||x.jm!==cur.jm)return '';
+  return monthState.ovr[x.jd+'_'+sid]||'';
+}
+function staffDay(j){
+  var order={D:0,N:1,O:2,L:3};
+  return cfg.staff.map(function(s){
+    var t=teamOf(s.team),base=t?teamShift(t,j):'O',o=ovrOf(j,s.id);
+    return{s:s,t:t,base:base,o:o,eff:o||base};
+  }).sort(function(a,b){return order[a.eff]-order[b.eff]||a.s.name.localeCompare(b.s.name,'fa')});
+}
+function tasksDue(j){
+  var x=d2j(j),len=monthLen(x.jy,x.jm),w=satIdx(j);
+  return cfg.tasks.filter(function(t){
+    if(t.freq==='daily')return true;
+    if(t.freq==='weekly')return +t.weekday===w;
+    if(t.freq==='monthly')return Math.min(+t.monthDay||1,len)===x.jd;
+    return false;
+  });
+}
+function doneKey(t,jd){return t.id+'_'+jd}
+function fmtDate(j){var x=d2j(j);return WD[satIdx(j)]+' '+fa(x.jd)+' '+MONTHS[x.jm-1]+' '+fa(x.jy)}
+function shiftChip(ch){return '<span class="chip sh-'+ch+'">'+SHL[ch]+'</span>'}
+function teamNames(j,ch){
+  var n=cfg.teams.filter(function(t){return teamShift(t,j)===ch}).map(function(t){return t.name});
+  return n.join('،')||'—';
+}
+function count(rows,ch){return rows.filter(function(r){return r.eff===ch}).length}
+
+/* ---------- persistence (Supabase) ---------- */
+var CFG=window.APP_CONFIG||{};
+var sb=null,session=null,online=navigator.onLine!==false,pendCfg=0,authErr='',ch=null,pollT=null;
+function lsSet(k,v){try{localStorage.setItem('shiftcal:'+k,JSON.stringify(v))}catch(e){}}
+function lsGet(k){try{var v=localStorage.getItem('shiftcal:'+k);return v?JSON.parse(v):null}catch(e){return null}}
+function toMonthState(d){
+  var s={done:{},ovr:{}};
+  Object.keys(d||{}).forEach(function(k){
+    if(k.indexOf('d:')===0)s.done[k.slice(2)]=true;
+    else if(k.indexOf('o:')===0)s.ovr[k.slice(2)]=d[k];
+  });
+  return s;
+}
+function fail(e){errMsg=(e&&(e.code==='42501'||/row-level security|permission/i.test(e.message||'')))?'readonly':'error';renderTop()}
+function saveCfg(){
+  lsSet('config',cfg);
+  if(!sb||!session)return;
+  pendCfg++;
+  sb.from('shift_kv').upsert({id:'config',data:clone(cfg)}).then(function(r){
+    pendCfg--;
+    if(r.error)fail(r.error);else{errMsg=''}
+    renderTop();
+  },function(e){pendCfg--;fail(e)});
+}
+function patchMonth(set,del){
+  lsSet(monthId(cur.jy,cur.jm),monthState);
+  if(!sb||!session)return;
+  sb.rpc('shift_patch',{p_id:monthId(cur.jy,cur.jm),p_set:set||{},p_del:del||[]}).then(function(r){
+    if(r.error)fail(r.error);else{errMsg=''}
+    renderTop();
+  },fail);
+}
+function commitCfg(){calcAnchor();saveCfg();render(true)}
+function monthId(jy,jm){return 'm-'+jy+'-'+pad(jm)}
+
+function loadCfg(){
+  return sb.from('shift_kv').select('data').eq('id','config').maybeSingle().then(function(r){
+    if(r.error)throw r.error;
+    if(pendCfg===0){cfg=normalize(r.data?r.data.data:null);calcAnchor();lsSet('config',cfg)}
+    loadedCfg=true;slow=false;online=true;errMsg='';
+  });
+}
+function loadMonth(){
+  var id=monthId(cur.jy,cur.jm);
+  return sb.from('shift_kv').select('data').eq('id',id).maybeSingle().then(function(r){
+    if(r.error)throw r.error;
+    if(id===monthId(cur.jy,cur.jm)){monthState=toMonthState(r.data?r.data.data:null);lsSet(id,monthState)}
+  });
+}
+function refresh(){
+  if(!sb||!session)return Promise.resolve();
+  return Promise.all([loadCfg(),loadMonth()]).then(function(){render()},function(){online=false;if(!loadedCfg)slow=true;renderTop()});
+}
+function watchMonth(){
+  var l=lsGet(monthId(cur.jy,cur.jm));
+  monthState=l&&l.done?l:{done:{},ovr:{}};
+  if(sb&&session)loadMonth().then(function(){render()},function(){});
+}
+function gotoMonth(jy,jm,sel){
+  cur={jy:jy,jm:jm};selJ=sel;watchMonth();render(true);
+}
+function subscribe(){
+  if(ch){try{sb.removeChannel(ch)}catch(e){}ch=null}
+  ch=sb.channel('shift-kv').on('postgres_changes',{event:'*',schema:'public',table:'shift_kv'},function(p){
+    var row=p.new;if(!row||!row.id)return;
+    if(row.id==='config'){if(pendCfg===0){cfg=normalize(row.data);calcAnchor();lsSet('config',cfg);render()}}
+    else if(row.id===monthId(cur.jy,cur.jm)){monthState=toMonthState(row.data);render()}
+  }).subscribe();
+}
+function startSession(s){
+  session=s;authErr='';
+  if(!s){
+    if(ch){try{sb.removeChannel(ch)}catch(e){}ch=null}
+    clearInterval(pollT);canWrite=false;loadedCfg=false;render(true);return;
+  }
+  sb.from('shift_editors').select('user_id').eq('user_id',s.user.id).maybeSingle().then(function(r){
+    canWrite=!!(r.data);render(true);
+  },function(){canWrite=false});
+  refresh();subscribe();
+  clearInterval(pollT);pollT=setInterval(function(){if(!document.hidden)refresh()},90000);
+}
+function signIn(){
+  var em=val('li-email'),pw=document.getElementById('li-pass').value;
+  if(!em||!pw){authErr='ایمیل و رمز عبور را وارد کنید.';render(true);return}
+  sb.auth.signInWithPassword({email:em,password:pw}).then(function(r){
+    if(r.error){authErr='ایمیل یا رمز عبور درست نیست.';render(true)}
+  },function(){authErr='اتصال به سرور برقرار نشد. اینترنت را بررسی کنید.';render(true)});
+}
+function signOut(){sb.auth.signOut()}
+
+/* ---------- views ---------- */
+function taskRow(t,j,showMachine){
+  var x=d2j(j),k=doneKey(t,x.jd),done=!!monthState.done[k],m=machineOf(t.machine);
+  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+(done?' checked':'')+(canWrite?'':' disabled')+'>'+
+    '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+'</span>'+
+    '<span class="chip ty-'+esc(t.type)+'">'+esc(TYPES[t.type]||t.type)+'</span></label>';
+}
+function tasksGrouped(j){
+  var due=tasksDue(j);
+  if(!due.length)return '<div class="empty">برای این روز کار PM یا کنترلی برنامه‌ریزی نشده است.</div>';
+  var groups={};
+  due.forEach(function(t){
+    var m=machineOf(t.machine),h=m?m.hall:'بدون سالن';
+    (groups[h]=groups[h]||[]).push(t);
+  });
+  return Object.keys(groups).map(function(h){
+    return '<div class="group"><h3>'+esc(h)+'</h3>'+groups[h].map(function(t){return taskRow(t,j,true)}).join('')+'</div>';
+  }).join('');
+}
+function monthStats(upToJd){
+  var len=monthLen(cur.jy,cur.jm),first=j2d(cur.jy,cur.jm,1),due=0,done=0,info={};
+  for(var d=1;d<=len;d++){
+    var j=first+d-1,ts=tasksDue(j),n=0;
+    ts.forEach(function(t){if(monthState.done[doneKey(t,d)])n++});
+    info[d]={due:ts.length,done:n,tasks:ts};
+    if(d<=upToJd){due+=ts.length;done+=n}
+  }
+  return{due:due,done:done,info:info,len:len,first:first};
+}
+function warnShift(rows,ch){
+  if(!cfg.staff.length)return '';
+  return count(rows,ch)===0?'<span class="alert">شیفت '+SHL[ch]+' بدون نفر است</span>':'';
+}
+
+function viewToday(){
+  var j=todayJ,x=d2j(j),rows=staffDay(j);
+  var inMonth=cur.jy===x.jy&&cur.jm===x.jm;
+  var st=inMonth?monthStats(x.jd):null;
+  var h='<div class="stack"><div><div class="eyebrow">امروز</div><h1 class="date">'+fmtDate(j)+'</h1></div>';
+  h+='<div class="two">';
+  ['D','N'].forEach(function(ch){
+    var on=rows.filter(function(r){return r.eff===ch});
+    h+='<section class="card shift-card '+ch+'"><div class="row between"><h2>شیفت '+SHL[ch]+'</h2><span class="chip sh-'+ch+'">تیم '+esc(teamNames(j,ch))+'</span></div>';
+    h+=on.length?'<ul class="names">'+on.map(function(r){return '<li>'+esc(r.s.name)+(r.s.role?'<small>'+esc(r.s.role)+'</small>':'')+'</li>'}).join('')+'</ul><small>'+fa(on.length)+' نفر</small>':
+      (cfg.staff.length?'':'<span class="muted">پرسنلی ثبت نشده است.</span>');
+    h+=warnShift(rows,ch)+'</section>';
+  });
+  h+='</div>';
+  var rest=rows.filter(function(r){return r.eff==='O'||r.eff==='L'});
+  if(rest.length)h+='<p class="hint">استراحت و مرخصی: '+rest.map(function(r){return esc(r.s.name)+(r.eff==='L'?' (مرخصی)':'')}).join('، ')+'</p>';
+  if(!cfg.staff.length)h+='<div class="empty">هنوز پرسنلی ثبت نشده است. از بخش <a href="#staff">پرسنل</a> شروع کنید.</div>';
+
+  h+='<section class="card stack"><div class="row between"><h2>PM و کنترل امروز</h2>'+(st?'<small>'+fa(st.info[x.jd].done)+' از '+fa(st.info[x.jd].due)+' انجام شد</small>':'')+'</div>';
+  h+=cfg.tasks.length?tasksGrouped(j):'<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#pm">دستگاه‌ها و PM</a> اضافه کنید.</div>';
+  h+='</section>';
+
+  if(st){
+    var late=[];
+    for(var d=1;d<x.jd;d++)st.info[d].tasks.forEach(function(t){if(!monthState.done[doneKey(t,d)])late.push({t:t,d:d})});
+    var pct=st.due?Math.round(st.done*100/st.due):0;
+    h+='<section class="card stack"><div class="row between"><h2>پیشرفت ماه '+MONTHS[x.jm-1]+'</h2><b>'+fa(pct)+'٪</b></div>'+
+      '<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div>'+
+      '<small>'+fa(st.done)+' از '+fa(st.due)+' کار تا امروز انجام شده است.</small>';
+    if(late.length){
+      h+='<div class="group"><h3>عقب‌افتاده ('+fa(late.length)+')</h3>';
+      late.slice(-10).reverse().forEach(function(l){
+        var m=machineOf(l.t.machine);
+        h+='<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(doneKey(l.t,l.d))+'"'+(canWrite?'':' disabled')+'><span class="t-main"><b>'+esc(l.t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span><span class="chip ty-'+esc(l.t.type)+'">'+esc(TYPES[l.t.type]||'')+'</span></label>';
+      });
+      if(late.length>10)h+='<small>و '+fa(late.length-10)+' مورد قدیمی‌تر</small>';
+      h+='</div>';
+    }
+    h+='</section>';
+  }
+  return h+'</div>';
+}
+
+function dayDetail(j){
+  var x=d2j(j),rows=staffDay(j);
+  var h='<section class="card stack"><div class="row between"><h2>'+fmtDate(j)+'</h2><span class="hint">روز: '+esc(teamNames(j,'D'))+' · شب: '+esc(teamNames(j,'N'))+'</span></div>';
+  h+='<div class="row">'+warnShift(rows,'D')+warnShift(rows,'N')+'</div>';
+  if(cfg.staff.length){
+    h+='<div class="group"><h3>وضعیت پرسنل در این روز</h3>';
+    rows.forEach(function(r){
+      h+='<div class="list-row"><span class="grow"><b>'+esc(r.s.name)+'</b> <small>'+esc(r.t?'تیم '+r.t.name:'بدون تیم')+'</small></span>'+shiftChip(r.eff)+
+        '<select data-act="ovr" data-s="'+esc(r.s.id)+'" data-j="'+j+'" aria-label="تغییر وضعیت '+esc(r.s.name)+'"'+(canWrite?'':' disabled')+'>'+
+        '<option value="">طبق چرخه ('+SHL[r.base]+')</option>'+['D','N','O','L'].map(function(c){return '<option value="'+c+'"'+(r.o===c?' selected':'')+'>'+SHL[c]+'</option>'}).join('')+'</select></div>';
+    });
+    h+='</div>';
+  }
+  h+='<div class="group"><h3>PM و کنترل</h3>'+tasksGrouped(j).replace(/<div class="group"><h3>/g,'<div class="group"><h3>')+'</div></section>';
+  return h;
+}
+function viewMonth(){
+  var st=monthStats(99),first=st.first,off=satIdx(first);
+  var h='<div class="row between"><h2>'+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row">'+
+    '<button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">امروز</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
+  h+='<div class="cal-head" aria-hidden="true">'+WDS.map(function(w){return '<div>'+w+'</div>'}).join('')+'</div><div class="grid">';
+  for(var i=0;i<off;i++)h+='<div class="cell blank"></div>';
+  for(var d=1;d<=st.len;d++){
+    var j=first+d-1,inf=st.info[d],cls='cell';
+    if(j===todayJ)cls+=' today';if(j===selJ)cls+=' sel';if(satIdx(j)===6)cls+=' fri';
+    var pmc='';
+    if(inf.due)pmc='<span class="pm'+(inf.done===inf.due?' ok':(j<todayJ?' late':''))+'">'+fa(inf.done)+'/'+fa(inf.due)+'</span>';
+    h+='<button class="'+cls+'" data-act="pick" data-j="'+j+'" aria-label="'+esc(fmtDate(j))+'"><span class="dn">'+fa(d)+'</span><span class="sh"><i class="s-D">'+esc(teamNames(j,'D'))+'</i><i class="s-N">'+esc(teamNames(j,'N'))+'</i></span>'+pmc+'</button>';
+  }
+  h+='</div><p class="hint"><span class="chip sh-D">روز</span> <span class="chip sh-N">شب</span> نام تیم هر شیفت · عدد پایین هر روز: کارهای PM انجام‌شده از کل</p>';
+  return h+dayDetail(selJ);
+}
+
+function viewStaff(){
+  var h='';
+  if(canWrite)h+='<section class="card stack"><h2>افزودن نفر</h2><div class="row">'+
+    '<div class="field"><label for="ns-name">نام</label><input id="ns-name" autocomplete="off"></div>'+
+    '<div class="field"><label for="ns-role">سمت</label><input id="ns-role" autocomplete="off"></div>'+
+    '<div class="field"><label for="ns-team">تیم شیفت</label><select id="ns-team">'+cfg.teams.map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>'}).join('')+'</select></div>'+
+    '<button class="btn pri" data-act="addstaff">افزودن</button></div></section>';
+  if(!cfg.staff.length)return h+'<div class="empty">هنوز پرسنلی ثبت نشده است.</div>';
+  var teams=cfg.teams.concat([{id:'',name:'بدون تیم'}]);
+  teams.forEach(function(t){
+    var list=cfg.staff.filter(function(s){return (s.team||'')===t.id});
+    if(!list.length)return;
+    h+='<section class="card"><h2>تیم '+esc(t.name)+' <small>('+fa(list.length)+' نفر)</small></h2>';
+    list.forEach(function(s){
+      h+='<div class="list-row"><span class="grow"><b>'+esc(s.name)+'</b>'+(s.role?' <small>'+esc(s.role)+'</small>':'')+'</span>'+
+        '<select data-act="staffteam" data-id="'+esc(s.id)+'" aria-label="تیم '+esc(s.name)+'"'+(canWrite?'':' disabled')+'>'+teams.map(function(o){return '<option value="'+esc(o.id)+'"'+((s.team||'')===o.id?' selected':'')+'>'+esc(o.name)+'</option>'}).join('')+'</select>'+
+        (canWrite?'<button class="btn sm del" data-act="del" data-kind="staff" data-id="'+esc(s.id)+'">حذف</button>':'')+'</div>';
+    });
+    h+='</section>';
+  });
+  return h;
+}
+
+function freqText(t){
+  if(t.freq==='weekly')return 'هفتگی، '+WD[+t.weekday||0];
+  if(t.freq==='monthly')return 'ماهانه، روز '+fa(+t.monthDay||1);
+  return 'روزانه';
+}
+function viewPM(){
+  var h='';
+  if(canWrite){
+    var halls=[];cfg.machines.forEach(function(m){if(halls.indexOf(m.hall)<0)halls.push(m.hall)});
+    h+='<div class="two"><section class="card stack"><h2>افزودن دستگاه</h2><div class="row">'+
+      '<div class="field"><label for="nm-name">نام دستگاه</label><input id="nm-name" autocomplete="off"></div>'+
+      '<div class="field"><label for="nm-hall">سالن</label><input id="nm-hall" list="halls" autocomplete="off"><datalist id="halls">'+halls.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist></div>'+
+      '<button class="btn pri" data-act="addmachine">افزودن</button></div></section>';
+    h+='<section class="card stack"><h2>افزودن کار PM / کنترل</h2><div class="row">'+
+      '<div class="field"><label for="nt-machine">دستگاه</label><select id="nt-machine">'+cfg.machines.map(function(m){return '<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>'}).join('')+'</select></div>'+
+      '<div class="field"><label for="nt-title">عنوان کار</label><input id="nt-title" autocomplete="off"></div>'+
+      '<div class="field"><label for="nt-type">نوع</label><select id="nt-type">'+Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k]+'</option>'}).join('')+'</select></div>'+
+      '<div class="field"><label for="nt-freq">تکرار</label><select id="nt-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return '<option value="'+k+'">'+FREQ[k]+'</option>'}).join('')+'</select></div>'+
+      '<div class="field" id="nt-wd-f" hidden><label for="nt-wd">روز هفته</label><select id="nt-wd">'+WD.map(function(w,i){return '<option value="'+i+'">'+w+'</option>'}).join('')+'</select></div>'+
+      '<div class="field" id="nt-md-f" hidden><label for="nt-md">روز ماه</label><input id="nt-md" type="number" min="1" max="31" value="1" inputmode="numeric" style="width:80px"></div>'+
+      '<button class="btn pri" data-act="addtask">افزودن</button></div></section></div>';
+  }
+  if(!cfg.machines.length)return h+'<div class="empty">هنوز دستگاهی ثبت نشده است.</div>';
+  var halls2={};
+  cfg.machines.forEach(function(m){(halls2[m.hall]=halls2[m.hall]||[]).push(m)});
+  Object.keys(halls2).forEach(function(hn){
+    h+='<section class="card stack"><h2>'+esc(hn)+'</h2>';
+    halls2[hn].forEach(function(m){
+      var ts=cfg.tasks.filter(function(t){return t.machine===m.id});
+      h+='<div class="group"><div class="row between"><h3 style="color:var(--ink);font-size:15px">'+esc(m.name)+'</h3>'+(canWrite?'<button class="btn sm del" data-act="del" data-kind="machine" data-id="'+esc(m.id)+'">حذف دستگاه</button>':'')+'</div>';
+      if(!ts.length)h+='<small>کاری برای این دستگاه تعریف نشده است.</small>';
+      ts.forEach(function(t){
+        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small></span><span class="chip ty-'+esc(t.type)+'">'+esc(TYPES[t.type]||t.type)+'</span>'+
+          (canWrite?'<button class="btn sm del" data-act="del" data-kind="task" data-id="'+esc(t.id)+'">حذف</button>':'')+'</div>';
+      });
+      h+='</div>';
+    });
+    h+='</section>';
+  });
+  return h;
+}
+
+function viewShifts(){
+  var len=cfg.cycle.length,a=cfg.anchor,h='';
+  h+='<section class="card stack"><h2>چرخه شیفت</h2><p class="hint">هر خانه یک روز از چرخه است. روی خانه بزنید تا بین روز، شب و استراحت عوض شود. چرخه‌ی پیش‌فرض: ۲ روز، ۲ شب، ۴ استراحت.</p><div class="cyc">';
+  cfg.cycle.split('').forEach(function(c,i){
+    h+='<button class="sh-'+(c==='D'||c==='N'?c:'O')+'" data-act="cyc" data-i="'+i+'"'+(canWrite?'':' disabled')+'>'+SHL[c==='D'||c==='N'?c:'O']+'<small>روز '+fa(i+1)+'</small></button>';
+  });
+  h+='</div>';
+  if(canWrite)h+='<div class="row"><button class="btn" data-act="cycadd">افزودن روز</button><button class="btn" data-act="cycdel"'+(len<=2?' disabled':'')+'>حذف آخرین روز</button></div>';
+  h+='</section>';
+  h+='<section class="card stack"><h2>تاریخ شروع چرخه</h2><p class="hint">در این تاریخ، تیمی که «هم‌فاز با روز ۱» است، روز اول چرخه را شروع می‌کند.</p><div class="row">'+
+    '<div class="field"><label for="an-y">سال</label><input id="an-y" type="number" data-act="anchor" value="'+a.y+'" style="width:90px"'+(canWrite?'':' disabled')+'></div>'+
+    '<div class="field"><label for="an-m">ماه</label><select id="an-m" data-act="anchor"'+(canWrite?'':' disabled')+'>'+MONTHS.map(function(m,i){return '<option value="'+(i+1)+'"'+(a.m===i+1?' selected':'')+'>'+m+'</option>'}).join('')+'</select></div>'+
+    '<div class="field"><label for="an-d">روز</label><input id="an-d" type="number" min="1" max="31" data-act="anchor" value="'+a.d+'" style="width:72px"'+(canWrite?'':' disabled')+'></div></div></section>';
+  h+='<section class="card stack"><h2>تیم‌ها</h2>';
+  cfg.teams.forEach(function(t){
+    h+='<div class="list-row"><div class="field"><label for="tn-'+esc(t.id)+'">نام تیم</label><input id="tn-'+esc(t.id)+'" data-act="teamname" data-id="'+esc(t.id)+'" value="'+esc(t.name)+'" style="width:110px"'+(canWrite?'':' disabled')+'></div>'+
+      '<div class="field"><label for="to-'+esc(t.id)+'">هم‌فاز با</label><select id="to-'+esc(t.id)+'" data-act="teamoff" data-id="'+esc(t.id)+'"'+(canWrite?'':' disabled')+'>'+
+      Array.from({length:len},function(_,i){return '<option value="'+i+'"'+(mod(+t.off||0,len)===i?' selected':'')+'>روز '+fa(i+1)+' چرخه</option>'}).join('')+'</select></div>'+
+      (canWrite&&cfg.teams.length>1?'<button class="btn sm del" data-act="del" data-kind="team" data-id="'+esc(t.id)+'">حذف</button>':'')+'</div>';
+  });
+  if(canWrite)h+='<div class="row"><button class="btn" data-act="addteam">افزودن تیم</button></div>';
+  h+='</section>';
+  h+='<section class="card stack"><h2>پیش‌نمایش ۱۴ روز آینده</h2><div class="scroll"><table class="prev"><thead><tr><th>تیم</th>';
+  for(var i=0;i<14;i++){var x=d2j(todayJ+i);h+='<th'+(i===0?' class="tdy"':'')+'>'+fa(x.jd)+'<br>'+WDS[satIdx(todayJ+i)]+'</th>'}
+  h+='</tr></thead><tbody>';
+  cfg.teams.forEach(function(t){
+    h+='<tr><td>'+esc(t.name)+'</td>';
+    for(var i=0;i<14;i++){var s=teamShift(t,todayJ+i);h+='<td><span class="sh-'+s+'">'+(s==='O'?'—':SHL[s])+'</span></td>'}
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></section>';
+  return h;
+}
+
+function viewSetup(){
+  return '<div class="card setup"><h2>اتصال به Supabase انجام نشده</h2><p>فایل <code>config.js</code> را باز کنید و <code>SUPABASE_URL</code> و <code>SUPABASE_ANON_KEY</code> را از Supabase › Project Settings › API وارد کنید.</p></div>';
+}
+function viewLogin(){
+  return '<form class="card login" id="login-form"><h2>ورود</h2><div class="field"><label for="li-email">ایمیل</label><input id="li-email" type="email" autocomplete="username" dir="ltr"></div><div class="field"><label for="li-pass">رمز عبور</label><input id="li-pass" type="password" autocomplete="current-password" dir="ltr"></div><div class="err" role="alert">'+esc(authErr)+'</div><button class="btn pri" type="submit">ورود</button></form>';
+}
+var VIEWS={today:viewToday,month:viewMonth,staff:viewStaff,pm:viewPM,shifts:viewShifts};
+
+/* ---------- render ---------- */
+function editing(){
+  var a=document.activeElement;
+  return a&&app.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox';
+}
+function renderTop(){
+  var el=$('#status'),t,c='status';
+  if(!sb){t='تنظیم نشده';c+=' bad'}
+  else if(!session){t='خارج از حساب'}
+  else if(errMsg==='readonly'){t='فقط‌خواندنی';c+=' bad'}
+  else if(errMsg){t='خطا در ذخیره';c+=' bad'}
+  else if(!online){t='آفلاین (آخرین داده ذخیره‌شده)';c+=' bad'}
+  else if(!loadedCfg){t=slow?'اتصال برقرار نشد':'در حال بارگذاری…';if(slow)c+=' bad'}
+  else if(!canWrite){t='فقط مشاهده'}
+  else{t='همگام';c+=' ok'}
+  el.textContent=t;el.className=c;
+  var out=$('#signout');if(out)out.hidden=!session;
+  document.querySelectorAll('#nav a').forEach(function(a){
+    if(a.dataset.v===view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  });
+}
+function render(force){
+  if(!force&&editing()){dirty=true;return}
+  dirty=false;
+  renderTop();
+  if(!sb){app.innerHTML=viewSetup();return}
+  if(!session){app.innerHTML=viewLogin();return}
+  app.innerHTML=(VIEWS[view]||VIEWS.today)();
+  var f=$('#nt-freq');if(f)syncFreq();
+}
+function syncFreq(){
+  var f=$('#nt-freq').value;
+  $('#nt-wd-f').hidden=f!=='weekly';$('#nt-md-f').hidden=f!=='monthly';
+}
+document.addEventListener('submit',function(e){if(e.target.id==='login-form'){e.preventDefault();signIn()}});
+document.addEventListener('click',function(e){if(e.target.id==='signout')signOut()});
+document.addEventListener('focusout',function(){setTimeout(function(){if(dirty&&!editing())render(true)},60)});
+
+/* ---------- events ---------- */
+function val(id){var e=document.getElementById(id);return e?e.value.trim():''}
+app.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');
+  if(!b||b.tagName==='SELECT'||b.tagName==='INPUT')return;
+  var act=b.dataset.act;
+  if(act==='pick'){selJ=+b.dataset.j;render(true);return}
+  if(act==='mprev'||act==='mnext'){
+    var jy=cur.jy,jm=cur.jm+(act==='mnext'?1:-1);
+    if(jm>12){jm=1;jy++}if(jm<1){jm=12;jy--}
+    gotoMonth(jy,jm,j2d(jy,jm,1));return;
+  }
+  if(act==='mtoday'){gotoMonth(tj.jy,tj.jm,todayJ);return}
+  if(!canWrite)return;
+  if(act==='del'){
+    if(!b.classList.contains('armed')){
+      var old=b.textContent;b.textContent='تأیید حذف';b.classList.add('armed');
+      setTimeout(function(){if(b.isConnected){b.textContent=old;b.classList.remove('armed')}},3000);return;
+    }
+    var id=b.dataset.id,k=b.dataset.kind;
+    if(k==='staff')cfg.staff=cfg.staff.filter(function(s){return s.id!==id});
+    if(k==='machine'){cfg.machines=cfg.machines.filter(function(m){return m.id!==id});cfg.tasks=cfg.tasks.filter(function(t){return t.machine!==id})}
+    if(k==='task')cfg.tasks=cfg.tasks.filter(function(t){return t.id!==id});
+    if(k==='team'){cfg.teams=cfg.teams.filter(function(t){return t.id!==id});cfg.staff.forEach(function(s){if(s.team===id)s.team=''})}
+    commitCfg();return;
+  }
+  if(act==='addstaff'){
+    var n=val('ns-name');if(!n)return;
+    cfg.staff.push({id:uid(),name:n,role:val('ns-role'),team:val('ns-team')});commitCfg();return;
+  }
+  if(act==='addmachine'){
+    var mn=val('nm-name');if(!mn)return;
+    cfg.machines.push({id:uid(),name:mn,hall:val('nm-hall')||'بدون سالن'});commitCfg();return;
+  }
+  if(act==='addtask'){
+    var tt=val('nt-title'),mid=val('nt-machine');if(!tt||!mid)return;
+    cfg.tasks.push({id:uid(),machine:mid,title:tt,type:val('nt-type'),freq:val('nt-freq'),weekday:+val('nt-wd')||0,monthDay:Math.max(1,Math.min(31,+val('nt-md')||1))});
+    commitCfg();return;
+  }
+  if(act==='cyc'){
+    var i=+b.dataset.i,c=cfg.cycle.split(''),nx={D:'N',N:'O',O:'D'};
+    c[i]=nx[c[i]]||'D';cfg.cycle=c.join('');commitCfg();return;
+  }
+  if(act==='cycadd'){if(cfg.cycle.length<14){cfg.cycle+='O';commitCfg()}return}
+  if(act==='cycdel'){if(cfg.cycle.length>2){cfg.cycle=cfg.cycle.slice(0,-1);commitCfg()}return}
+  if(act==='addteam'){cfg.teams.push({id:uid(),name:'تیم '+fa(cfg.teams.length+1),off:0});commitCfg();return}
+});
+app.addEventListener('change',function(e){
+  var el=e.target,act=el.dataset.act;
+  if(!act)return;
+  if(act==='freqsel'){syncFreq();return}
+  if(!canWrite)return;
+  if(act==='tick'){
+    var kk=el.dataset.key,dk='d:'+kk;
+    if(el.checked){monthState.done[kk]=true;patchMonth({[dk]:true},[])}else{delete monthState.done[kk];patchMonth({},[dk])}
+    render(true);return;
+  }
+  if(act==='ovr'){
+    var x=d2j(+el.dataset.j),k=x.jd+'_'+el.dataset.s;
+    var ok='o:'+k;
+    if(el.value){monthState.ovr[k]=el.value;patchMonth({[ok]:el.value},[])}else{delete monthState.ovr[k];patchMonth({},[ok])}
+    render(true);return;
+  }
+  if(act==='staffteam'){var s=cfg.staff.find(function(q){return q.id===el.dataset.id});if(s){s.team=el.value;commitCfg()}return}
+  if(act==='teamname'){var t=teamOf(el.dataset.id);if(t&&el.value.trim()){t.name=el.value.trim();commitCfg()}return}
+  if(act==='teamoff'){var t2=teamOf(el.dataset.id);if(t2){t2.off=+el.value;commitCfg()}return}
+  if(act==='anchor'){
+    var y=+val('an-y'),m=+val('an-m'),d=+val('an-d');
+    if(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=31){cfg.anchor={y:y,m:m,d:d};commitCfg()}
+    return;
+  }
+});
+
+/* ---------- routing ---------- */
+function route(){
+  var h=(location.hash||'').replace('#','');
+  view=VIEWS_ORDER.indexOf(h)>=0?h:'today';
+  if(view==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){cur={jy:tj.jy,jm:tj.jm};selJ=todayJ;watchMonth()}
+  render(true);
+}
+window.addEventListener('hashchange',route);
+
+/* ---------- boot ---------- */
+function boot(){
+  var l=lsGet('config');if(l){cfg=normalize(l);calcAnchor()}
+  watchMonth();
+  window.addEventListener('online',function(){online=true;refresh()});
+  window.addEventListener('offline',function(){online=false;renderTop()});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)refresh()});
+  if(!CFG.SUPABASE_URL||!CFG.SUPABASE_ANON_KEY||!window.supabase){render(true);return}
+  sb=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  sb.auth.onAuthStateChange(function(ev,s){
+    if(ev==='INITIAL_SESSION'||ev==='SIGNED_IN'||ev==='SIGNED_OUT')startSession(s);
+  });
+  setTimeout(function(){if(!loadedCfg&&session){slow=true;renderTop()}},10000);
+  render(true);
+}
+route();
+boot();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
+</script>
+</body>
+</html>

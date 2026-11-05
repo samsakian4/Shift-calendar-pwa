@@ -1,0 +1,20 @@
+{
+  "_note": "قالب Bubblewrap. امن‌تر است با 'bubblewrap init --manifest=https://SITE/manifest.webmanifest' ساخته شود؛ این فایل فقط نقطه‌ی شروع است.",
+  "packageId": "com.example.shiftcalendar",
+  "host": "YOUR-SITE.netlify.app",
+  "name": "تقویم شیفت و PM",
+  "launcherName": "شیفت و PM",
+  "display": "standalone",
+  "themeColor": "#1f5f8b",
+  "navigationColor": "#1f5f8b",
+  "backgroundColor": "#edf0f3",
+  "startUrl": "/#today",
+  "iconUrl": "https://YOUR-SITE.netlify.app/icons/icon-512.png",
+  "maskableIconUrl": "https://YOUR-SITE.netlify.app/icons/icon-maskable-512.png",
+  "webManifestUrl": "https://YOUR-SITE.netlify.app/manifest.webmanifest",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "fallbackType": "customtabs",
+  "enableNotifications": false,
+  "signingKey": { "path": "./android.keystore", "alias": "android" }
+}

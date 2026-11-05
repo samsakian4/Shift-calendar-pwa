@@ -1,0 +1,23 @@
+{
+  "id": "./",
+  "name": "تقویم شیفت و PM",
+  "short_name": "شیفت و PM",
+  "description": "تقویم شمسی شیفت ۱۲ ساعته پرسنل و برنامه PM دستگاه‌ها",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./#today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1f5f8b",
+  "background_color": "#edf0f3",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "امروز", "url": "./#today" },
+    { "name": "تقویم ماه", "url": "./#month" }
+  ]
+}

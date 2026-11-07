@@ -185,6 +185,18 @@ a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
 .seg button{padding:6px 14px;border:1px solid var(--line);background:var(--surface);border-radius:6px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .t-rng{color:var(--night);font-size:12px}
+/* ui-ux: هدف لمسی حداقل ۴۴px روی گوشی، فاصله ۸px، احترام به کاهش حرکت */
+@media (pointer:coarse){
+  .btn,.seg button,select,input:not([type=checkbox]){min-height:44px}
+  .btn.sm{min-height:44px;padding-inline:12px}
+  .task{min-height:48px;padding:8px 0}
+  input[type="checkbox"]{width:26px;height:26px}
+  .list-row{gap:8px 10px}
+  .opt button{min-height:40px;min-width:40px}
+  .ms-opt{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.btn,.seg button,.cell,.task,select,summary{cursor:pointer}
 /* v2 */
 [hidden]{display:none!important}
 textarea{font:inherit;color:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0;max-width:100%;width:100%;resize:vertical}

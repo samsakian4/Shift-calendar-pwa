@@ -181,6 +181,10 @@ a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
 .setup code{direction:ltr;unicode-bidi:isolate;background:var(--surface2);padding:0 4px;border-radius:3px}
 
 
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{padding:6px 14px;border:1px solid var(--line);background:var(--surface);border-radius:6px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.t-rng{color:var(--night);font-size:12px}
 /* v2 */
 [hidden]{display:none!important}
 textarea{font:inherit;color:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0;max-width:100%;width:100%;resize:vertical}
@@ -211,15 +215,9 @@ textarea:disabled{opacity:.55}
 <div class="wrap" lang="fa" dir="rtl">
   <header class="top">
     <div class="brand">تقویم شیفت و PM</div>
-    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><a class="btn sm" id="settingsBtn" href="#settings" hidden>تنظیمات</a><button class="btn sm" id="signout" hidden>خروج</button></div>
+    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><a class="btn sm" id="homeBtn" href="#home" hidden>خانه</a><a class="btn sm" id="manageBtn" href="#manage" hidden>مدیریت</a><a class="btn sm" id="settingsBtn" href="#settings" hidden>تنظیمات</a><button class="btn sm" id="signout" hidden>خروج</button></div>
   </header>
-  <nav class="nav" id="nav" aria-label="بخش‌ها">
-    <a href="#today" data-v="today">امروز</a>
-    <a href="#month" data-v="month">تقویم ماه</a>
-    <a href="#staff" data-v="staff">پرسنل</a>
-    <a href="#pm" data-v="pm">PM و کارها</a>
-    <a href="#shifts" data-v="shifts">چرخه شیفت</a>
-  </nav>
+  
   <main id="app" class="stack"></main>
   <div id="notice" class="notice" role="status" hidden></div>
 </div>
@@ -283,10 +281,12 @@ var MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مردا�
 var WD=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 var WDS=['ش','ی','د','س','چ','پ','ج'];
 var SHL={D:'روز',N:'شب',W:'روزکار',O:'استراحت',L:'مرخصی'};
-var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه'};
+var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',once:'یک روز مشخص',range:'یک‌بار در یک بازه‌ی زمانی'};
+var EVERY=[[1,'هر ماه'],[2,'هر ۲ ماه'],[3,'هر ۳ ماه'],[4,'هر ۴ ماه'],[6,'هر ۶ ماه'],[12,'سالی یک بار']];
+var STABS=[['staff','پرسنل'],['roles','سمت‌ها'],['machines','دستگاه‌ها'],['lists','نوع کار و سالن'],['shifts','چرخه شیفت']];
 var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت شب'],['both','هر شیفت (جدا برای روز و شب)']];
 var SHTXT={any:'',D:'شیفت روز',N:'شیفت شب',both:'هر شیفت'};
-var VIEWS_ORDER=['today','month','staff','pm','shifts','settings'];
+var VIEWS_ORDER=['home','manage','settings'];
 var OLD_TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
 var MS_PH='انتخاب سمت (اختیاری)';
 
@@ -332,6 +332,7 @@ function normalize(d){
     if(OLD_TYPES[t.type])t.type=OLD_TYPES[t.type];
     if(!t.shift)t.shift='any';
     if(t.desc==null)t.desc='';
+    if(t.freq==='monthly'&&!(+t.every>0))t.every=1;
     return t;
   });
   return o;
@@ -341,7 +342,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='today';
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -370,29 +371,58 @@ function staffDay(j){
     return{s:s,t:t,base:base,o:o,eff:o||base};
   }).sort(function(a,b){return order[a.eff]-order[b.eff]||a.s.name.localeCompare(b.s.name,'fa')});
 }
-function startJ(t){
-  if(!t.start||!t.start.y)return null;
-  try{return j2d(+t.start.y,+t.start.m,+t.start.d)}catch(e){return null}
+function dj(o){if(!o||!o.y)return null;try{return j2d(+o.y,+o.m,+o.d)}catch(e){return null}}
+function curDoc(){return monthId(cur.jy,cur.jm)}
+function stateFor(id){if(id===curDoc())return monthState;return extra[id]||(extra[id]={done:{},ovr:{}})}
+function docOf(t){
+  if(t.freq==='once'&&t.date&&t.date.y)return monthId(+t.date.y,+t.date.m);
+  if(t.freq==='range'&&t.from&&t.from.y)return monthId(+t.from.y,+t.from.m);
+  return curDoc();
 }
-/* کارهای سررسید یک روز؛ هر مورد یک «نمونه» است: {t, sk} که sk شیفت مسئول است ('' یعنی کل روز) */
+function doneKey(t,jd,sk){return t.id+'_'+(t.freq==='range'?'r':jd)+(sk?'_'+sk:'')}
+function doneVal(t,jd,sk){return stateFor(docOf(t)).done[doneKey(t,jd,sk)]}
+function doneJ(v){
+  if(!v||typeof v!=='object'||!v.at)return null;
+  var d=new Date(v.at);if(isNaN(d))return null;
+  return g2d(d.getFullYear(),d.getMonth()+1,d.getDate());
+}
+/* کارهای سررسید یک روز؛ هر مورد یک «نمونه» است: {t, sk, rng} که sk شیفت مسئول است ('' یعنی کل روز)
+   کار «بازه‌ای» هر روز در بازه دیده می‌شود تا انجام شود؛ بعد فقط در روز انجامش می‌ماند. */
 function tasksDue(j){
   var x=d2j(j),len=monthLen(x.jy,x.jm),w=satIdx(j),out=[];
   cfg.tasks.forEach(function(t){
-    var sj=startJ(t);
-    if(sj!==null&&j<sj)return;
-    var hit=false;
-    if(t.freq==='daily')hit=true;
-    else if(t.freq==='weekly')hit=(+t.weekday===w);
-    else if(t.freq==='monthly')hit=(Math.min(+t.monthDay||1,len)===x.jd);
+    var hit=false,rng=false,f=t.freq;
+    if(f==='once'){var o=dj(t.date);hit=(o!==null&&o===j)}
+    else if(f==='range'){var a=dj(t.from),b=dj(t.to);hit=(a!==null&&b!==null&&j>=a&&j<=b);rng=true}
+    else{
+      var sj=dj(t.start);
+      if(sj!==null&&j<sj)return;
+      if(f==='daily')hit=true;
+      else if(f==='weekly')hit=(+t.weekday===w);
+      else if(f==='monthly'){
+        hit=(Math.min(+t.monthDay||1,len)===x.jd);
+        var ev=+t.every||1;
+        if(hit&&ev>1&&sj!==null){var s0=d2j(sj);hit=mod((x.jy*12+x.jm)-(s0.jy*12+s0.jm),ev)===0}
+      }
+    }
     if(!hit)return;
-    var sh=t.shift||'any';
-    if(sh==='both'){out.push({t:t,sk:'D'});out.push({t:t,sk:'N'})}
-    else if(sh==='D'||sh==='N')out.push({t:t,sk:sh});
-    else out.push({t:t,sk:''});
+    var sh=t.shift||'any',sks=sh==='both'?['D','N']:(sh==='D'||sh==='N'?[sh]:['']);
+    sks.forEach(function(sk){
+      if(rng){
+        var dv=doneVal(t,x.jd,sk);
+        if(dv&&doneJ(dv)!==j)return;
+        out.push({t:t,sk:sk,rng:true,last:j===dj(t.to)});
+      }else out.push({t:t,sk:sk});
+    });
   });
   return out;
 }
-function doneKey(t,jd,sk){return t.id+'_'+jd+(sk?'_'+sk:'')}
+/* شمارش برای آمار: کار بازه‌ای فقط یک‌بار حساب می‌شود (روز انجام، یا روز آخر بازه اگر انجام نشده) */
+function inst(it,j){
+  var x=d2j(j),dv=doneVal(it.t,x.jd,it.sk);
+  if(it.rng){if(dv)return{due:1,done:1};return it.last?{due:1,done:0}:{due:0,done:0}}
+  return{due:1,done:dv?1:0};
+}
 function fmtDate(j){var x=d2j(j);return WD[satIdx(j)]+' '+fa(x.jd)+' '+MONTHS[x.jm-1]+' '+fa(x.jy)}
 function fmtStart(s){return s&&s.y?fa(s.d)+' '+MONTHS[s.m-1]+' '+fa(s.y):''}
 function shiftChip(ch){return '<span class="chip sh-'+ch+'">'+SHL[ch]+'</span>'}
@@ -425,7 +455,7 @@ function lsClear(){try{Object.keys(localStorage).filter(function(k){return k.ind
 function loadOutbox(){var o=lsGet('outbox');outbox=Array.isArray(o)?o:[]}
 function saveOutbox(){lsSet('outbox',outbox)}
 function cacheCfg(){lsSet(CFGKEY,{data:cfg,ver:cfgVer})}
-function cacheMonth(){lsSet(monthId(cur.jy,cur.jm),monthState)}
+function cacheMonth(id){id=id||curDoc();lsSet(id,stateFor(id))}
 function isNetErr(e){return !!e&&(!e.code||e.code==='PGRST301'||e.code==='PGRST303')}
 function userName(){return session&&session.user&&session.user.email?session.user.email.split('@')[0]:''}
 
@@ -453,9 +483,10 @@ function fail(e){
 }
 
 /* تیک‌ها و تغییر شیفت‌ها: اول در صف ثبت می‌شوند و بعد به سرور می‌روند (آفلاین هم کار می‌کند) */
-function patchMonth(set,del){
-  outbox.push({id:monthId(cur.jy,cur.jm),set:set||{},del:del||[]});
-  saveOutbox();cacheMonth();renderTop();flush();
+function patchMonth(set,del,id){
+  id=id||curDoc();
+  outbox.push({id:id,set:set||{},del:del||[]});
+  saveOutbox();cacheMonth(id);renderTop();flush();
 }
 function flush(){
   if(flushing||!sb||!session||!outbox.length)return Promise.resolve();
@@ -522,13 +553,30 @@ function loadMonth(){
     monthState=st;cacheMonth();
   });
 }
+function neededDocs(){
+  var s={},c=curDoc();
+  cfg.tasks.forEach(function(t){if(t.freq==='once'||t.freq==='range'){var id=docOf(t);if(id!==c)s[id]=1}});
+  return Object.keys(s).slice(0,24);
+}
+function loadExtra(){
+  return Promise.all(neededDocs().map(function(id){
+    return sb.from('shift_kv').select('data').eq('id',id).maybeSingle().then(function(r){
+      if(r.error)throw r.error;
+      var st=toMonthState(r.data?r.data.data:null);
+      outbox.forEach(function(op){if(op.id===id)applyOp(st,op)});
+      extra[id]=st;lsSet(id,st);
+    });
+  }));
+}
+function hydrateExtra(){neededDocs().forEach(function(id){var l=lsGet(id);if(l&&l.done&&!extra[id])extra[id]=l})}
 function refresh(){
   if(!sb||!session)return Promise.resolve();
-  return Promise.all([loadCfg(),loadMonth()]).then(function(){render()},function(){online=false;if(!loadedCfg)slow=true;renderTop()});
+  return loadCfg().then(function(){return Promise.all([loadMonth(),loadExtra()])}).then(function(){render()},function(){online=false;if(!loadedCfg)slow=true;renderTop()});
 }
 function watchMonth(){
   var l=lsGet(monthId(cur.jy,cur.jm));
   monthState=l&&l.done?l:{done:{},ovr:{}};
+  hydrateExtra();
   if(sb&&session)loadMonth().then(function(){render()},function(){});
 }
 function gotoMonth(jy,jm,sel){
@@ -539,10 +587,11 @@ function subscribe(){
   ch=sb.channel('shift-kv').on('postgres_changes',{event:'*',schema:'public',table:'shift_kv'},function(p){
     var row=p.new;if(!row||!row.id)return;
     if(row.id==='config'){if(!cfgSaving){cfg=normalize(row.data);cfgVer=row.updated_at||cfgVer;calcAnchor();cacheCfg();render()}}
-    else if(row.id===monthId(cur.jy,cur.jm)){
+    else{
       var st=toMonthState(row.data);
       outbox.forEach(function(op){if(op.id===row.id)applyOp(st,op)});
-      monthState=st;cacheMonth();render();
+      if(row.id===curDoc()){monthState=st;cacheMonth()}else extra[row.id]=st;
+      render();
     }
   }).subscribe();
 }
@@ -624,11 +673,11 @@ function peopleHtml(rows){
   }).join('');
 }
 function taskRow(it,j,showMachine,showSk){
-  var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=monthState.done[k],done=!!dv,m=machineOf(t.machine);
+  var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=doneVal(t,x.jd,it.sk),done=!!dv,m=machineOf(t.machine);
   var by=(dv&&typeof dv==='object')?(' · '+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')):'';
-  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+(done?' checked':'')+dis()+'>'+
+  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
     '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
-    (t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
+    (it.rng?'<small class="t-rng">یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+'</small>':'')+(t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
     (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
 }
 function instGroups(list,j,showSk){
@@ -642,10 +691,10 @@ function instGroups(list,j,showSk){
 function monthStats(upToJd){
   var len=monthLen(cur.jy,cur.jm),first=j2d(cur.jy,cur.jm,1),due=0,done=0,info={};
   for(var d=1;d<=len;d++){
-    var j=first+d-1,ts=tasksDue(j),n=0;
-    ts.forEach(function(it){if(monthState.done[doneKey(it.t,d,it.sk)])n++});
-    info[d]={due:ts.length,done:n,tasks:ts};
-    if(d<=upToJd){due+=ts.length;done+=n}
+    var j=first+d-1,ts=tasksDue(j),n=0,m=0;
+    ts.forEach(function(it){var c=inst(it,j);n+=c.due;m+=c.done});
+    info[d]={due:n,done:m,tasks:ts};
+    if(d<=upToJd){due+=n;done+=m}
   }
   return{due:due,done:done,info:info,len:len,first:first};
 }
@@ -653,6 +702,9 @@ function hasShiftStaff(){return cfg.staff.some(function(s){return s.kind!=='day'
 function warnShift(rows,c){
   if(!hasShiftStaff())return '';
   return count(rows,c)===0?'<span class="alert">شیفت '+SHL[c]+' بدون نفر است</span>':'';
+}
+function viewHome(){
+  return '<div class="seg"><button data-act="htab" data-t="today" aria-pressed="'+(homeTab==='today')+'">امروز</button><button data-act="htab" data-t="month" aria-pressed="'+(homeTab==='month')+'">تقویم ماه</button></div>'+(homeTab==='month'?viewMonth():viewToday());
 }
 function viewToday(){
   var j=todayJ,x=d2j(j),rows=staffDay(j),fri=satIdx(j)===6,due=tasksDue(j);
@@ -671,21 +723,21 @@ function viewToday(){
   }
   var any=due.filter(function(i){return i.sk===''});
   h+='<section class="card stack"><div class="row between"><h2>کارهای امروز</h2>'+(st?'<small>'+fa(st.info[x.jd].done)+' از '+fa(st.info[x.jd].due)+' انجام شد</small>':'')+'</div><p class="hint">کارهایی که شیفت مشخصی ندارند. کارهای هر شیفت داخل کارت همان شیفت است.</p>';
-  h+=cfg.tasks.length?(any.length?instGroups(any,j,false):'<div class="empty">کار بدون شیفتی برای امروز نیست.</div>'):'<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#pm">PM و کارها</a> اضافه کنید.</div>';
+  h+=cfg.tasks.length?(any.length?instGroups(any,j,false):'<div class="empty">کار بدون شیفتی برای امروز نیست.</div>'):'<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#manage">مدیریت</a> اضافه کنید.</div>';
   h+='</section>';
   var rest=rows.filter(function(r){return r.eff==='O'||r.eff==='L'});
   if(rest.length)h+='<p class="hint">استراحت و مرخصی: '+rest.map(function(r){return esc(r.s.name)+(r.eff==='L'?' (مرخصی)':'')}).join('، ')+'</p>';
-  if(!cfg.staff.length)h+='<div class="empty">هنوز پرسنلی ثبت نشده است. از بخش <a href="#staff">پرسنل</a> شروع کنید.</div>';
+  if(!cfg.staff.length)h+='<div class="empty">هنوز پرسنلی ثبت نشده است. از <a href="#settings">تنظیمات</a> (تب پرسنل) شروع کنید.</div>';
   if(st){
     var late=[];
-    for(var d=1;d<x.jd;d++)st.info[d].tasks.forEach(function(it){if(!monthState.done[doneKey(it.t,d,it.sk)])late.push({it:it,d:d})});
+    for(var d=1;d<x.jd;d++)st.info[d].tasks.forEach(function(it){var c=inst(it,st.first+d-1);if(c.due&&!c.done)late.push({it:it,d:d})});
     var pct=st.due?Math.round(st.done*100/st.due):0;
     h+='<section class="card stack"><div class="row between"><h2>پیشرفت ماه '+MONTHS[x.jm-1]+'</h2><b>'+fa(pct)+'٪</b></div><div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div><small>'+fa(st.done)+' از '+fa(st.due)+' کار تا امروز انجام شده است.</small>';
     if(late.length){
       h+='<div class="group"><h3>عقب‌افتاده ('+fa(late.length)+')</h3>';
       late.slice(-10).reverse().forEach(function(l){
         var t=l.it.t,m=machineOf(t.machine),k=doneKey(t,l.d,l.it.sk);
-        h+='<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'"'+dis()+'><span class="t-main"><b>'+esc(t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span>'+(l.it.sk?shiftChip(l.it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
+        h+='<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+dis()+'><span class="t-main"><b>'+esc(t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span>'+(l.it.sk?shiftChip(l.it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
       });
       if(late.length>10)h+='<small>و '+fa(late.length-10)+' مورد قدیمی‌تر</small>';
       h+='</div>';
@@ -772,30 +824,46 @@ function viewStaff(){
 
 /* ---------- PM و کارها ---------- */
 function freqText(t){
-  var a=t.freq==='weekly'?'هفتگی، '+WD[+t.weekday||0]:t.freq==='monthly'?'ماهانه، روز '+fa(+t.monthDay||1):'روزانه';
-  var sh=SHTXT[t.shift||'any'];
-  var st=fmtStart(t.start);
+  var a,sh=SHTXT[t.shift||'any'],st=fmtStart(t.start);
+  if(t.freq==='once')return 'یک‌بار، '+fmtStart(t.date)+(sh?' · '+sh:'');
+  if(t.freq==='range')return 'یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+(sh?' · '+sh:'');
+  if(t.freq==='weekly')a='هفتگی، '+WD[+t.weekday||0];
+  else if(t.freq==='monthly'){var ev=+t.every||1;a=(ev===1?'ماهانه':ev===12?'سالانه':'هر '+fa(ev)+' ماه')+'، روز '+fa(+t.monthDay||1)}
+  else a='روزانه';
   return a+(sh?' · '+sh:'')+(st?' · از '+st:'');
+}
+function dateFields(p,k,s){
+  return '<div class="field"><label for="'+p+'-'+k+'-y">سال</label><input id="'+p+'-'+k+'-y" type="number" value="'+s.y+'" inputmode="numeric" style="width:90px"></div>'+
+    '<div class="field"><label for="'+p+'-'+k+'-m">ماه</label><select id="'+p+'-'+k+'-m">'+MONTHS.map(function(mn,i){return opt(i+1,mn,+s.m===i+1)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-'+k+'-d">روز</label><input id="'+p+'-'+k+'-d" type="number" min="1" max="31" value="'+s.d+'" inputmode="numeric" style="width:72px"></div>';
+}
+function readDate(p,k){
+  var y=+val(p+'-'+k+'-y'),m=+val(p+'-'+k+'-m'),d=+val(p+'-'+k+'-d');
+  if(!(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=monthLen(y,m)))return null;
+  return{y:y,m:m,d:d};
 }
 function taskFormHtml(p,t){
   var m=t?machineOf(t.machine):null,hall=m?m.hall:'';
   var halls=allHalls(),freq=t?t.freq:'daily',sh=t?(t.shift||'any'):'any';
-  var s=(t&&t.start&&t.start.y)?t.start:{y:tj.jy,m:tj.jm,d:tj.jd};
-  var h='<div class="row">'+
+  var td={y:tj.jy,m:tj.jm,d:tj.jd};
+  function dd(o){return(o&&o.y)?o:td}
+  var ev=t?(+t.every||1):1;
+  return '<div class="row">'+
     '<div class="field"><label for="'+p+'-hall">۱. سالن</label><select id="'+p+'-hall" data-act="taskhall">'+opt('','بدون سالن',hall==='')+halls.map(function(x){return opt(x,x,hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-machine">۲. دستگاه</label><select id="'+p+'-machine">'+machineOptions(hall,t?t.machine:'')+'</select></div>'+
     '<div class="field grow"><label for="'+p+'-title">۳. عنوان کار</label><input id="'+p+'-title" autocomplete="off" value="'+esc(t?t.title:'')+'"></div></div>'+
     '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
     '<div class="row">'+
     '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t&&t.type===x)}).join('')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-freq">تکرار</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
-    '<div class="field" id="'+p+'-wd-f"'+(freq==='weekly'?'':' hidden')+'><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div>'+
-    '<div class="field" id="'+p+'-md-f"'+(freq==='monthly'?'':' hidden')+'><label for="'+p+'-md">روز ماه</label><input id="'+p+'-md" type="number" min="1" max="31" value="'+(t?(+t.monthDay||1):1)+'" inputmode="numeric" style="width:80px"></div>'+
+    '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+SHOPT.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
-    '<div class="row"><div class="field"><label for="'+p+'-sy">شروع از سال</label><input id="'+p+'-sy" type="number" value="'+s.y+'" inputmode="numeric" style="width:90px"></div>'+
-    '<div class="field"><label for="'+p+'-sm">ماه</label><select id="'+p+'-sm">'+MONTHS.map(function(mn,i){return opt(i+1,mn,s.m===i+1)}).join('')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-sd">روز</label><input id="'+p+'-sd" type="number" min="1" max="31" value="'+s.d+'" inputmode="numeric" style="width:72px"></div></div>';
-  return h;
+    '<div class="row" id="'+p+'-g-wd"><div class="field"><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div></div>'+
+    '<div class="row" id="'+p+'-g-md"><div class="field"><label for="'+p+'-md">روز ماه</label><input id="'+p+'-md" type="number" min="1" max="31" value="'+(t?(+t.monthDay||1):1)+'" inputmode="numeric" style="width:80px"></div>'+
+    '<div class="field"><label for="'+p+'-ev">هر چند ماه</label><select id="'+p+'-ev">'+EVERY.map(function(o){return opt(o[0],o[1],ev===o[0])}).join('')+'</select></div></div>'+
+    '<div class="row" id="'+p+'-g-start"><span class="hint grow">شروع از تاریخ (قبل از آن کار نمایش داده نمی‌شود)</span>'+dateFields(p,'st',dd(t&&t.start))+'</div>'+
+    '<div class="row" id="'+p+'-g-once"><span class="hint grow">تاریخ انجام کار</span>'+dateFields(p,'dt',dd(t&&t.date))+'</div>'+
+    '<div class="row" id="'+p+'-g-range"><span class="hint grow">از تاریخ</span>'+dateFields(p,'fr',dd(t&&t.from))+'<span class="hint grow">تا تاریخ</span>'+dateFields(p,'to',dd(t&&t.to))+'</div>'+
+    '<p class="hint" id="'+p+'-g-rh">«یک‌بار در بازه»: کار هر روزِ بازه دیده می‌شود تا یک نفر انجامش بدهد؛ بعد از انجام دیگر نمایش داده نمی‌شود. اگر تا آخر بازه انجام نشود، عقب‌افتاده حساب می‌شود.</p>';
 }
 function machineOptions(hall,sel){
   var list=cfg.machines.filter(function(m){return (m.hall||'')===(hall||'')});
@@ -806,15 +874,26 @@ function readTask(p){
   var mid=val(p+'-machine'),title=val(p+'-title');
   if(!mid){notify('اول سالن و دستگاه را انتخاب کنید. دستگاه‌ها را در «تنظیمات» تعریف کنید.',true);return null}
   if(!title){notify('عنوان کار را بنویسید.',true);return null}
-  var y=+val(p+'-sy'),m=+val(p+'-sm'),d=+val(p+'-sd');
-  if(!(y>1300&&y<1600&&m>=1&&m<=12&&d>=1&&d<=31)){notify('تاریخ شروع درست نیست.',true);return null}
-  return{machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:val(p+'-freq'),weekday:+val(p+'-wd')||0,
-    monthDay:Math.max(1,Math.min(31,+val(p+'-md')||1)),shift:val(p+'-shift')||'any',start:{y:y,m:m,d:d}};
+  var f=val(p+'-freq'),o={machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
+  if(f==='weekly')o.weekday=+val(p+'-wd')||0;
+  if(f==='monthly'){o.monthDay=Math.max(1,Math.min(31,+val(p+'-md')||1));o.every=+val(p+'-ev')||1}
+  if(f==='daily'||f==='weekly'||f==='monthly'){o.start=readDate(p,'st');if(!o.start){notify('تاریخ شروع درست نیست.',true);return null}}
+  if(f==='once'){o.date=readDate(p,'dt');if(!o.date){notify('تاریخ انجام درست نیست.',true);return null}}
+  if(f==='range'){
+    o.from=readDate(p,'fr');o.to=readDate(p,'to');
+    if(!o.from||!o.to){notify('تاریخ‌های بازه درست نیست.',true);return null}
+    if(dj(o.to)<dj(o.from)){notify('پایان بازه نمی‌تواند قبل از شروع آن باشد.',true);return null}
+  }
+  return o;
+}
+function oneDone(t){
+  var d=t.freq==='once'?(t.date&&t.date.d):0,sh=t.shift||'any',sks=sh==='both'?['D','N']:(sh==='D'||sh==='N'?[sh]:['']);
+  return sks.every(function(sk){return !!doneVal(t,d,sk)});
 }
 function viewPM(){
   var h='';
   if(canWrite){
-    h+='<section class="card stack"><h2>افزودن کار</h2>';
+    h+='<section class="card stack"><h2>افزودن کار</h2><p class="hint">اینجا کارها را تعریف می‌کنید و پرسنل در صفحه‌ی خانه می‌بینند.</p>';
     h+=cfg.machines.length?taskFormHtml('nt',null)+'<div class="row"><button class="btn pri" data-act="addtask">افزودن</button></div>':'<div class="empty">اول دستگاه‌ها را در <a href="#settings">تنظیمات</a> تعریف کنید.</div>';
     h+='</section>';
   }
@@ -833,7 +912,7 @@ function viewPM(){
           h+='<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
           return;
         }
-        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+editBtns('task',t.id)+'</div>';
+        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
       });
       h+='</div>';
     });
@@ -888,20 +967,19 @@ function machineFormHtml(p,m){
   return '<div class="row"><div class="field"><label for="'+p+'-name">نام دستگاه</label><input id="'+p+'-name" autocomplete="off" value="'+esc(m?m.name:'')+'"></div>'+
     '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!m||!m.hall)+halls.map(function(x){return opt(x,x,m&&m.hall===x)}).join('')+'</select></div></div>';
 }
-function viewSettings(){
-  var h='<section class="card stack"><h2>تنظیمات</h2><p class="hint">این‌ها را یک‌بار تعریف کنید. حذف یا تغییر نام یک گزینه روی فرم‌ها اثر می‌گذارد: تغییر نام در همه‌ی موارد ثبت‌شده اعمال می‌شود، ولی حذف، مقدار قبلی افراد و دستگاه‌ها را دست‌نخورده می‌گذارد.</p></section>';
-  LISTS_META.forEach(function(m){
-    var arr=cfg.lists[m.k]||[];
-    h+='<section class="card stack"><h2>'+m.title+'</h2><p class="hint">'+m.hint+'</p>';
-    h+=arr.length?'<div class="opts">'+arr.map(function(x,i){
-      var id=m.k+':'+i;
-      if(isEdit('list',id))return '<span class="opt"><input id="le-input" data-list="'+m.k+'" data-i="'+i+'" value="'+esc(x)+'" maxlength="60" style="width:150px"><button class="ed" data-act="lstsave" data-list="'+m.k+'" data-i="'+i+'">ذخیره</button><button data-act="editcancel">انصراف</button></span>';
-      return '<span class="opt">'+esc(x)+(canWrite?'<button class="ed" data-act="edit" data-kind="list" data-id="'+id+'" aria-label="ویرایش '+esc(x)+'">ویرایش</button><button data-act="del" data-kind="listitem" data-list="'+m.k+'" data-i="'+i+'" aria-label="حذف '+esc(x)+'">×</button>':'')+'</span>';
-    }).join('')+'</div>':'<div class="empty">هنوز گزینه‌ای تعریف نشده است.</div>';
-    if(canWrite)h+='<div class="row"><div class="field"><label for="ls-'+m.k+'">گزینه‌ی جدید</label><input id="ls-'+m.k+'" maxlength="60" placeholder="'+esc(m.ph)+'" autocomplete="off"></div><button class="btn pri" data-act="lstadd" data-list="'+m.k+'">افزودن</button></div>';
-    h+='</section>';
-  });
-  h+='<section class="card stack"><h2>دستگاه‌ها</h2><p class="hint">هر دستگاه یک‌بار تعریف می‌شود و بعد در فرم کارها انتخاب می‌شود. حذف دستگاه، کارهای آن را هم حذف می‌کند.</p>';
+function listCard(m){
+  var arr=cfg.lists[m.k]||[];
+  var h='<section class="card stack"><h2>'+m.title+'</h2><p class="hint">'+m.hint+'</p>';
+  h+=arr.length?'<div class="opts">'+arr.map(function(x,i){
+    var id=m.k+':'+i;
+    if(isEdit('list',id))return '<span class="opt"><input id="le-input" data-list="'+m.k+'" data-i="'+i+'" value="'+esc(x)+'" maxlength="60" style="width:150px"><button class="ed" data-act="lstsave" data-list="'+m.k+'" data-i="'+i+'">ذخیره</button><button data-act="editcancel">انصراف</button></span>';
+    return '<span class="opt">'+esc(x)+(canWrite?'<button class="ed" data-act="edit" data-kind="list" data-id="'+id+'" aria-label="ویرایش '+esc(x)+'">ویرایش</button><button data-act="del" data-kind="listitem" data-list="'+m.k+'" data-i="'+i+'" aria-label="حذف '+esc(x)+'">×</button>':'')+'</span>';
+  }).join('')+'</div>':'<div class="empty">هنوز گزینه‌ای تعریف نشده است.</div>';
+  if(canWrite)h+='<div class="row"><div class="field"><label for="ls-'+m.k+'">گزینه‌ی جدید</label><input id="ls-'+m.k+'" maxlength="60" placeholder="'+esc(m.ph)+'" autocomplete="off"></div><button class="btn pri" data-act="lstadd" data-list="'+m.k+'">افزودن</button></div>';
+  return h+'</section>';
+}
+function machinesCard(){
+  var h='<section class="card stack"><h2>دستگاه‌ها</h2><p class="hint">هر دستگاه یک‌بار تعریف می‌شود و بعد در فرم کارها انتخاب می‌شود. حذف دستگاه، کارهای آن را هم حذف می‌کند.</p>';
   if(canWrite)h+=machineFormHtml('nm',null)+'<div class="row"><button class="btn pri" data-act="addmachine">افزودن دستگاه</button></div>';
   if(!cfg.machines.length)h+='<div class="empty">هنوز دستگاهی ثبت نشده است.</div>';
   var byH={};
@@ -920,6 +998,14 @@ function viewSettings(){
   });
   return h+'</section>';
 }
+function viewSettings(){
+  var h='<div class="seg">'+STABS.map(function(s){return '<button data-act="stab" data-t="'+s[0]+'" aria-pressed="'+(setTab===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
+  if(setTab==='staff')return h+viewStaff();
+  if(setTab==='roles')return h+listCard(LISTS_META[0]);
+  if(setTab==='machines')return h+machinesCard();
+  if(setTab==='lists')return h+listCard(LISTS_META[2])+listCard(LISTS_META[1]);
+  return h+viewShifts();
+}
 
 /* ---------- ورود ---------- */
 function viewSetup(){
@@ -928,7 +1014,7 @@ function viewSetup(){
 function viewLogin(){
   return '<form class="card login" id="login-form"><h2>ورود</h2><div class="field"><label for="li-email">ایمیل</label><input id="li-email" type="email" autocomplete="username" dir="ltr"></div><div class="field"><label for="li-pass">رمز عبور</label><input id="li-pass" type="password" autocomplete="current-password" dir="ltr"></div><div class="err" role="alert">'+esc(authErr)+'</div><button class="btn pri" type="submit">ورود</button></form>';
 }
-var VIEWS={today:viewToday,month:viewMonth,staff:viewStaff,pm:viewPM,shifts:viewShifts,settings:viewSettings};
+var VIEWS={home:viewHome,manage:viewPM,settings:viewSettings};
 
 /* ---------- رندر ---------- */
 function editing(){
@@ -948,10 +1034,10 @@ function renderTop(){
   else{t='همگام'+(lastSync?' · '+timeFa(lastSync):'');c+=' ok'}
   el.textContent=t;el.className=c;
   var out=$('#signout');if(out)out.hidden=!session;
-  var sbn=$('#settingsBtn');
-  if(sbn){sbn.hidden=!session;if(view==='settings')sbn.setAttribute('aria-current','page');else sbn.removeAttribute('aria-current')}
-  document.querySelectorAll('#nav a').forEach(function(a){
-    if(a.dataset.v===view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  [['homeBtn','home',true],['manageBtn','manage',canWrite],['settingsBtn','settings',canWrite]].forEach(function(x){
+    var b=$('#'+x[0]);if(!b)return;
+    b.hidden=!(session&&x[2]);
+    if(view===x[1])b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
 }
 function render(force){
@@ -961,13 +1047,15 @@ function render(force){
   if(!sb){app.innerHTML=viewSetup();return}
   if(!session){app.innerHTML=viewLogin();return}
   var openMs=[].map.call(app.querySelectorAll('details.ms[open]'),function(d){return d.dataset.ms});
-  app.innerHTML=(VIEWS[view]||VIEWS.today)();
+  var vw=(!canWrite&&view!=='home')?'home':view;
+  app.innerHTML=(VIEWS[vw]||VIEWS.home)();
   openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
   ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
 }
 function syncFreq(p){
   var f=$('#'+p+'-freq').value;
-  $('#'+p+'-wd-f').hidden=f!=='weekly';$('#'+p+'-md-f').hidden=f!=='monthly';
+  var show={wd:f==='weekly',md:f==='monthly',start:f==='daily'||f==='weekly'||f==='monthly',once:f==='once',range:f==='range',rh:f==='range'};
+  Object.keys(show).forEach(function(k){var e=$('#'+p+'-g-'+k);if(e)e.hidden=!show[k]});
 }
 document.addEventListener('submit',function(e){if(e.target.id==='login-form'){e.preventDefault();signIn()}});
 document.addEventListener('click',function(e){
@@ -996,6 +1084,8 @@ app.addEventListener('click',function(e){
   if(!b||b.tagName==='SELECT'||b.tagName==='INPUT')return;
   var act=b.dataset.act;
   if(act==='pick'){selJ=+b.dataset.j;render(true);return}
+  if(act==='htab'){homeTab=b.dataset.t;if(homeTab==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){gotoMonth(tj.jy,tj.jm,todayJ);return}render(true);return}
+  if(act==='stab'){setTab=b.dataset.t;edit=null;render(true);return}
   if(act==='mprev'||act==='mnext'){
     var jy=cur.jy,jm=cur.jm+(act==='mnext'?1:-1);
     if(jm>12){jm=1;jy++}if(jm<1){jm=12;jy--}
@@ -1043,7 +1133,7 @@ app.addEventListener('click',function(e){
   }
   if(act==='savetask'){
     var tv2=readTask('et');if(!tv2)return;
-    mutate(function(){var t=cfg.tasks.find(function(q){return q.id===b.dataset.id});if(t)Object.assign(t,tv2)});return;
+    mutate(function(){var i=cfg.tasks.findIndex(function(q){return q.id===b.dataset.id});if(i>=0)cfg.tasks[i]=Object.assign({id:b.dataset.id},tv2)});return;
   }
   if(act==='lstadd'){
     var lk=b.dataset.list,inp=document.getElementById('ls-'+lk),tv3=inp?inp.value.trim().slice(0,60):'';
@@ -1077,9 +1167,9 @@ app.addEventListener('change',function(e){
   }
   if(!canWrite){if(el.type==='checkbox')el.checked=!el.checked;return}
   if(act==='tick'){
-    var kk=el.dataset.key,dk='d:'+kk;
-    if(el.checked){var sv={by:userName(),at:new Date().toISOString()};monthState.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[])}
-    else{delete monthState.done[kk];patchMonth({},[dk])}
+    var kk=el.dataset.key,dk='d:'+kk,doc=el.dataset.doc||curDoc(),stt=stateFor(doc);
+    if(el.checked){var sv={by:userName(),at:new Date().toISOString()};stt.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[],doc)}
+    else{delete stt.done[kk];patchMonth({},[dk],doc)}
     render(true);return;
   }
   if(act==='ovr'){
@@ -1111,9 +1201,13 @@ app.addEventListener('keydown',function(e){
 /* ---------- مسیریابی ---------- */
 function route(){
   var h=(location.hash||'').replace('#','');
-  view=VIEWS_ORDER.indexOf(h)>=0?h:'today';
+  var map={today:'home',month:'home',pm:'manage',staff:'settings',shifts:'settings'};
+  if(h==='month'||h==='today')homeTab=h;
+  if(h==='staff'||h==='shifts')setTab=h;
+  var v=map[h]||h;
+  view=VIEWS_ORDER.indexOf(v)>=0?v:'home';
   edit=null;
-  if(view==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){cur={jy:tj.jy,jm:tj.jm};selJ=todayJ;watchMonth()}
+  if(view==='home'&&homeTab==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){cur={jy:tj.jy,jm:tj.jm};selJ=todayJ;watchMonth()}
   render(true);
 }
 window.addEventListener('hashchange',route);

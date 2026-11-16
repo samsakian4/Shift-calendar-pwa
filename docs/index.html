@@ -409,7 +409,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -1069,7 +1069,7 @@ var LISTS_META=[
 function machineFormHtml(p,m){
   var halls=allHalls();
   return '<div class="row"><div class="field"><label for="'+p+'-name">نام دستگاه</label><input id="'+p+'-name" autocomplete="off" value="'+esc(m?m.name:'')+'"></div>'+
-    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!m||!m.hall)+halls.map(function(x){return opt(x,x,m&&m.hall===x)}).join('')+'</select></div></div>';
+    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',m?!m.hall:!lastMHall)+halls.map(function(x){return opt(x,x,m?m.hall===x:lastMHall===x)}).join('')+'</select></div></div>';
 }
 function listCard(m){
   var arr=cfg.lists[m.k]||[];
@@ -1082,25 +1082,30 @@ function listCard(m){
   if(canWrite)h+='<div class="row"><div class="field"><label for="ls-'+m.k+'">گزینه‌ی جدید</label><input id="ls-'+m.k+'" maxlength="60" placeholder="'+esc(m.ph)+'" autocomplete="off"></div><button class="btn pri" data-act="lstadd" data-list="'+m.k+'">افزودن</button></div>';
   return h+'</section>';
 }
+function machineRow(m){
+  if(isEdit('machine',m.id))return '<div class="card flat stack">'+machineFormHtml('em',m)+'<div class="row"><button class="btn pri" data-act="savemachine" data-id="'+esc(m.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+  var n=cfg.tasks.filter(function(t){return t.machine===m.id}).length;
+  return '<div class="srow"><span class="grow"><b>'+esc(m.name)+'</b> <small>'+fa(n)+' کار</small></span>'+editBtns('machine',m.id)+'</div>';
+}
 function machinesCard(){
-  var h='<section class="card stack"><h2>دستگاه‌ها</h2><p class="hint">هر دستگاه یک‌بار تعریف می‌شود و بعد در فرم کارها انتخاب می‌شود. حذف دستگاه، کارهای آن را هم حذف می‌کند.</p>';
-  if(canWrite)h+=machineFormHtml('nm',null)+'<div class="row"><button class="btn pri" data-act="addmachine">افزودن دستگاه</button></div>';
-  if(!cfg.machines.length)h+='<div class="empty">هنوز دستگاهی ثبت نشده است.</div>';
-  var byH={};
-  cfg.machines.forEach(function(m){(byH[m.hall||'بدون سالن']=byH[m.hall||'بدون سالن']||[]).push(m)});
-  Object.keys(byH).forEach(function(hn){
-    h+='<div class="group"><h3>'+esc(hn)+'</h3>';
-    byH[hn].forEach(function(m){
-      if(isEdit('machine',m.id)){
-        h+='<div class="card flat stack">'+machineFormHtml('em',m)+'<div class="row"><button class="btn pri" data-act="savemachine" data-id="'+esc(m.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
-        return;
-      }
-      var n=cfg.tasks.filter(function(t){return t.machine===m.id}).length;
-      h+='<div class="list-row"><span class="grow"><b>'+esc(m.name)+'</b> <small>'+fa(n)+' کار</small></span>'+editBtns('machine',m.id)+'</div>';
-    });
-    h+='</div>';
+  var h='';
+  if(canWrite)h+='<details class="card addbox"'+(cfg.machines.length?'':' open')+'><summary><b>افزودن دستگاه</b></summary><div class="stack">'+machineFormHtml('nm',null)+'<div class="row"><button class="btn pri" data-act="addmachine">افزودن</button></div></div></details>';
+  if(!cfg.machines.length)return h+'<div class="empty">هنوز دستگاهی ثبت نشده است. حذف دستگاه، کارهای آن را هم حذف می‌کند.</div>';
+  h+='<div class="filters"><div class="field grow"><label for="mf-q">جستجوی دستگاه</label><input id="mf-q" type="search" data-act="mff" value="'+esc(mf.q)+'" autocomplete="off"></div></div>';
+  var halls=allHalls(),q=mf.q.toLowerCase();
+  var cols=halls.map(function(x){return{title:x,items:cfg.machines.filter(function(m){return m.hall===x})}});
+  var none=cfg.machines.filter(function(m){return !m.hall||halls.indexOf(m.hall)<0});
+  if(none.length)cols.push({title:'بدون سالن',items:none,none:true});
+  h+='<div class="hallcols">';
+  cols.forEach(function(c){
+    var items=c.items.filter(function(m){return !q||m.name.toLowerCase().indexOf(q)>=0});
+    h+='<section class="card stack hallcol"><div class="row between"><h2>'+esc(c.title)+'</h2><small>'+fa(items.length)+(items.length!==c.items.length?' از '+fa(c.items.length):'')+' دستگاه</small></div>';
+    if(c.none&&canWrite&&cfg.lists.halls.length)h+='<div class="row bulk"><div class="field"><label for="bmh-sel">همه‌ی این دستگاه‌ها را به سالن منتقل کن</label><select id="bmh-sel">'+cfg.lists.halls.map(function(x){return opt(x,x,false)}).join('')+'</select></div><button class="btn" data-act="bulkmhall">انتقال</button></div>';
+    if(!items.length)h+='<div class="empty">'+(c.items.length?'موردی با این جستجو نیست.':'هنوز دستگاهی در این سالن نیست.')+'</div>';
+    h+=items.map(machineRow).join('');
+    h+='</section>';
   });
-  return h+'</section>';
+  return h+'</div>';
 }
 function viewSettings(){
   var h='<div class="seg">'+STABS.map(function(s){return '<button data-act="stab" data-t="'+s[0]+'" aria-pressed="'+(setTab===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
@@ -1236,7 +1241,7 @@ function render(force){
   app.innerHTML=(VIEWS[vw]||VIEWS.home)();
   openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
   if(abOpen){var ab2=app.querySelector('details.addbox');if(ab2)ab2.setAttribute('open','')}
-  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&setTab==='staff');
+  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&(setTab==='staff'||setTab==='machines'));
   ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
 }
 function syncFreq(p){
@@ -1272,6 +1277,13 @@ function saveListEdit(k,i,v){
   if(!v){notify('نام نمی‌تواند خالی باشد.',true);return}
   if(cfg.lists[k].indexOf(v)>=0&&cfg.lists[k][i]!==v){notify('این گزینه از قبل هست.',true);return}
   mutate(function(){renameItem(k,i,v)});
+}
+function submitMachine(){
+  var mn=val('nm-name');
+  if(!mn){notify('نام دستگاه را بنویسید.',true);var n0=document.getElementById('nm-name');if(n0)n0.focus();return}
+  var hl=val('nm-hall');lastMHall=hl;
+  var ok=mutate(function(){cfg.machines.push({id:uid(),name:mn,hall:hl})});
+  if(ok){var nn=document.getElementById('nm-name');if(nn)nn.focus();notify('«'+mn+'» اضافه شد.')}
 }
 function submitStaff(){
   var sv=readStaff('ns');
@@ -1326,9 +1338,10 @@ app.addEventListener('click',function(e){
     var sv2=readStaff('es');if(!sv2)return;
     mutate(function(){var s=cfg.staff.find(function(q){return q.id===b.dataset.id});if(s)Object.assign(s,sv2)});return;
   }
-  if(act==='addmachine'){
-    var mn=val('nm-name');if(!mn){notify('نام دستگاه را بنویسید.',true);return}
-    mutate(function(){cfg.machines.push({id:uid(),name:mn,hall:val('nm-hall')})});return;
+  if(act==='addmachine'){submitMachine();return}
+  if(act==='bulkmhall'){
+    var bs=document.getElementById('bmh-sel'),bv=bs?bs.value:'';if(!bv)return;
+    mutate(function(){cfg.machines.forEach(function(m){if(!m.hall||allHalls().indexOf(m.hall)<0)m.hall=bv})});return;
   }
   if(act==='savemachine'){
     var en=val('em-name');if(!en){notify('نام دستگاه را بنویسید.',true);return}
@@ -1361,6 +1374,7 @@ app.addEventListener('click',function(e){
 app.addEventListener('change',function(e){
   var el=e.target,act=el.dataset.act;
   if(!act)return;
+  if(act==='mff'){mf.q=el.value.trim();render(true);return}
   if(act==='sff'){sf[el.dataset.k]=el.value.trim();render(true);return}
   if(act==='rpf'){rp[el.dataset.k]=el.value.trim();if(el.dataset.k==='hall')rp.machine='';rp.limit=40;render(true);return}
   if(act==='freqsel'){syncFreq(el.id.slice(0,2));return}
@@ -1412,6 +1426,7 @@ app.addEventListener('keydown',function(e){
   if(e.key==='Escape'&&ms&&ms.open){ms.removeAttribute('open');ms.querySelector('summary').focus()}
   if(e.key==='Enter'&&ms&&e.target.type==='checkbox'){e.preventDefault();e.target.click()}
   if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.id==='ns-name'){e.preventDefault();submitStaff()}
+  if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.id==='nm-name'){e.preventDefault();submitMachine()}
   if(e.key==='Enter'&&e.target.id&&e.target.id.indexOf('ls-')===0){
     e.preventDefault();
     var bt=app.querySelector('[data-act="lstadd"][data-list="'+e.target.id.slice(3)+'"]');

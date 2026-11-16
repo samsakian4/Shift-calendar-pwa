@@ -409,7 +409,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -1202,6 +1202,7 @@ var VIEWS={home:viewHome,report:viewReport,manage:viewPM,settings:viewSettings};
 /* ---------- رندر ---------- */
 function editing(){
   var a=document.activeElement;
+  if(formDirty&&Date.now()-formAt<180000)return true;
   return a&&app.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox';
 }
 function renderTop(){
@@ -1225,7 +1226,7 @@ function renderTop(){
 }
 function render(force){
   if(!force&&(editing()||edit)){dirty=true;return}
-  dirty=false;
+  dirty=false;formDirty=false;
   renderTop();
   if(!sb){app.innerHTML=viewSetup();return}
   if(!session){app.innerHTML=viewLogin();return}
@@ -1243,6 +1244,13 @@ function syncFreq(p){
   var show={wd:f==='weekly',md:f==='monthly',start:f==='daily'||f==='weekly'||f==='monthly',once:f==='once',range:f==='range',rh:f==='range'};
   Object.keys(show).forEach(function(k){var e=$('#'+p+'-g-'+k);if(e)e.hidden=!show[k]});
 }
+/* فرمی که نیمه‌پر است نباید با به‌روزرسانی خودکار (همگام‌سازی) پاک شود */
+function markDirty(e){
+  var t=e.target;if(!t||!t.closest)return;
+  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
+}
+app.addEventListener('input',markDirty);
+app.addEventListener('change',markDirty);
 document.addEventListener('submit',function(e){if(e.target.id==='login-form'){e.preventDefault();signIn()}});
 document.addEventListener('click',function(e){
   if(e.target.id==='signout')signOut();

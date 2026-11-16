@@ -260,6 +260,21 @@ details.late[open]>summary{margin-bottom:8px}
 .rwho{text-align:end;max-width:140px}
 @media (max-width:480px){.rrow{grid-template-columns:76px 1fr}.rwho{grid-column:2;text-align:start;max-width:none}}
 @media print{.top-actions,.seg,.filters,.btn,#notice{display:none!important}body{background:#fff;color:#000}.card,.kpi{border-color:#999}}
+.wrap.wide{max-width:1500px}
+.hallcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;align-items:start}
+.hallcol{min-width:0}
+.srow{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.srow:last-child{border-bottom:0}
+.srow .grow{flex:1;min-width:120px;line-height:1.5}
+.srow .btn{padding:0 8px;font-size:12px}
+details.addbox>summary{cursor:pointer;list-style:none}
+details.addbox>summary::-webkit-details-marker{display:none}
+details.addbox[open]>summary{margin-bottom:10px}
+.bulk{align-items:flex-end;background:var(--surface2);padding:8px;border-radius:8px}
+.wrap.wide .filters{grid-template-columns:minmax(200px,2fr) minmax(140px,1fr);max-width:640px}
+.wrap.wide .filters .grow{grid-column:auto}
+.hallcol .group{gap:0}
+.hallcol .group>h3{padding-top:6px}
 </style>
 </head>
 <body>
@@ -371,6 +386,7 @@ function normalize(d){
     if(!Array.isArray(x.roles)){x.roles=x.role?[x.role]:[];}
     delete x.role;
     if(x.kind!=='day')x.kind='shift';
+    if(typeof x.hall!=='string')x.hall='';
     return x;
   });
   o.machines=o.machines.map(function(m){
@@ -393,7 +409,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -716,10 +732,11 @@ function roleGroups(rows){
   });
   return keys.map(function(k){return{role:k,rows:g[k]}});
 }
+function multiHall(){var h={};cfg.staff.forEach(function(s){if(s.hall)h[s.hall]=1});return Object.keys(h).length>1}
 function peopleHtml(rows){
   if(!rows.length)return '<p class="muted">کسی در این گروه نیست.</p>';
   return roleGroups(rows).map(function(g){
-    return '<div class="rolegrp"><b>'+esc(g.role)+' <small>'+fa(g.rows.length)+'</small></b><span>'+g.rows.map(function(r){return esc(r.s.name)+(r.o&&r.o!==r.base?' <small class="ovr">(دستی)</small>':'')}).join('، ')+'</span></div>';
+    return '<div class="rolegrp"><b>'+esc(g.role)+' <small>'+fa(g.rows.length)+'</small></b><span>'+g.rows.map(function(r){return esc(r.s.name)+(multiHall()&&r.s.hall?' <small>('+esc(r.s.hall)+')</small>':'')+(r.o&&r.o!==r.base?' <small class="ovr">(دستی)</small>':'')}).join('، ')+'</span></div>';
   }).join('');
 }
 function taskRow(it,j,showMachine,showSk){
@@ -858,38 +875,55 @@ function staffFormHtml(p,s){
     '<div class="field"><label for="'+p+'-name">نام</label><input id="'+p+'-name" autocomplete="off" value="'+esc(s?s.name:'')+'"></div>'+
     '<div class="field"><label for="'+p+'-kind">نوع</label><select id="'+p+'-kind" data-act="kindsel">'+opt('shift','شیفتی',kind==='shift')+opt('day','روزکار (شنبه تا پنجشنبه)',kind==='day')+'</select></div>'+
     '<div class="field"><label for="'+p+'-team">تیم شیفت</label><select id="'+p+'-team"'+(kind==='day'?' disabled':'')+'>'+cfg.teams.map(function(t){return opt(t.id,t.name,s&&s.team===t.id)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!s||!s.hall)+allHalls().concat(s&&s.hall&&allHalls().indexOf(s.hall)<0?[s.hall]:[]).map(function(x){return opt(x,x,s&&s.hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label>سمت (اختیاری، چند انتخابی)</label>'+msHtml('ms-'+p,cfg.lists.roles,s?rolesOf(s):[])+'</div></div>';
 }
 function readStaff(p){
   var n=val(p+'-name');
   if(!n){notify('نام را بنویسید.',true);return null}
   var kind=val(p+'-kind')==='day'?'day':'shift',dt=document.querySelector('details[data-ms="ms-'+p+'"]');
-  return{name:n,kind:kind,team:kind==='day'?'':val(p+'-team'),roles:dt?msChecked(dt):[]};
+  return{name:n,kind:kind,team:kind==='day'?'':val(p+'-team'),hall:val(p+'-hall'),roles:dt?msChecked(dt):[]};
 }
 function staffMeta(s){
   var r=rolesOf(s);
   return r.length?' <small>'+esc(r.join('، '))+'</small>':'';
 }
+function staffRow(s){
+  if(isEdit('staff',s.id))return '<div class="card flat stack"><h3>ویرایش '+esc(s.name)+'</h3>'+staffFormHtml('es',s)+'<div class="row"><button class="btn pri" data-act="savestaff" data-id="'+esc(s.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+  return '<div class="srow"><span class="grow"><b>'+esc(s.name)+'</b>'+staffMeta(s)+'</span>'+editBtns('staff',s.id)+'</div>';
+}
+function staffMatch(s){
+  if(sf.team==='day'&&s.kind!=='day')return false;
+  if(sf.team&&sf.team!=='day'&&(s.kind==='day'||s.team!==sf.team))return false;
+  if(sf.q){var t=(s.name+' '+rolesOf(s).join(' ')).toLowerCase();if(t.indexOf(sf.q.toLowerCase())<0)return false}
+  return true;
+}
 function viewStaff(){
   var h='';
-  if(canWrite)h+='<section class="card stack"><h2>افزودن نفر</h2>'+staffFormHtml('ns',null)+'<div class="row"><button class="btn pri" data-act="addstaff">افزودن</button></div></section>';
+  if(canWrite)h+='<details class="card addbox"'+(cfg.staff.length?'':' open')+'><summary><b>افزودن نفر</b></summary><div class="stack">'+staffFormHtml('ns',null)+'<div class="row"><button class="btn pri" data-act="addstaff">افزودن</button></div></div></details>';
   if(!cfg.staff.length)return h+'<div class="empty">هنوز پرسنلی ثبت نشده است.</div>';
-  var groups=cfg.teams.map(function(t){return{title:'تیم '+t.name,list:cfg.staff.filter(function(s){return s.kind!=='day'&&s.team===t.id})}});
-  groups.push({title:'روزکار (شنبه تا پنجشنبه، جمعه تعطیل)',list:cfg.staff.filter(function(s){return s.kind==='day'})});
-  groups.push({title:'شیفتی بدون تیم',list:cfg.staff.filter(function(s){return s.kind!=='day'&&!teamOf(s.team)})});
-  groups.forEach(function(g){
-    if(!g.list.length)return;
-    h+='<section class="card"><h2>'+esc(g.title)+' <small>('+fa(g.list.length)+' نفر)</small></h2>';
-    g.list.forEach(function(s){
-      if(isEdit('staff',s.id)){
-        h+='<div class="card flat stack"><h3>ویرایش '+esc(s.name)+'</h3>'+staffFormHtml('es',s)+'<div class="row"><button class="btn pri" data-act="savestaff" data-id="'+esc(s.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
-        return;
-      }
-      h+='<div class="list-row"><span class="grow"><b>'+esc(s.name)+'</b>'+staffMeta(s)+'</span>'+editBtns('staff',s.id)+'</div>';
+  h+='<div class="filters"><div class="field grow"><label for="sf-q">جستجو (نام یا سمت)</label><input id="sf-q" type="search" data-act="sff" data-k="q" value="'+esc(sf.q)+'" autocomplete="off"></div>'+
+    '<div class="field"><label for="sf-team">گروه</label><select id="sf-team" data-act="sff" data-k="team">'+opt('','همه',!sf.team)+cfg.teams.map(function(t){return opt(t.id,'تیم '+t.name,sf.team===t.id)}).join('')+opt('day','روزکار',sf.team==='day')+'</select></div></div>';
+  var cols=allHalls().filter(function(x){return cfg.staff.some(function(s){return s.hall===x})||cfg.lists.halls.indexOf(x)>=0});
+  var nohall=cfg.staff.filter(function(s){return !s.hall||cols.indexOf(s.hall)<0});
+  var list=cols.map(function(x){return{title:x,items:cfg.staff.filter(function(s){return s.hall===x})}});
+  if(nohall.length)list.push({title:'بدون سالن',items:nohall,none:true});
+  h+='<div class="hallcols">';
+  list.forEach(function(c){
+    var items=c.items.filter(staffMatch);
+    h+='<section class="card stack hallcol"><div class="row between"><h2>'+esc(c.title)+'</h2><small>'+fa(items.length)+(items.length!==c.items.length?' از '+fa(c.items.length):'')+' نفر</small></div>';
+    if(c.none&&canWrite&&cfg.lists.halls.length)h+='<div class="row bulk"><div class="field"><label for="bh-sel">همه‌ی این افراد را به سالن منتقل کن</label><select id="bh-sel">'+cfg.lists.halls.map(function(x){return opt(x,x,false)}).join('')+'</select></div><button class="btn" data-act="bulkhall">انتقال</button></div>';
+    if(!items.length)h+='<div class="empty">'+(c.items.length?'موردی با این فیلتر نیست.':'هنوز کسی در این سالن نیست.')+'</div>';
+    var groups=cfg.teams.map(function(t){return{title:'تیم '+t.name,list:items.filter(function(s){return s.kind!=='day'&&s.team===t.id})}});
+    groups.push({title:'روزکار (شنبه تا پنجشنبه)',list:items.filter(function(s){return s.kind==='day'})});
+    groups.push({title:'شیفتی بدون تیم',list:items.filter(function(s){return s.kind!=='day'&&!teamOf(s.team)})});
+    groups.forEach(function(g){
+      if(!g.list.length)return;
+      h+='<div class="group"><h3>'+esc(g.title)+' <small>('+fa(g.list.length)+')</small></h3>'+g.list.map(staffRow).join('')+'</div>';
     });
     h+='</section>';
   });
-  return h;
+  return h+'</div>';
 }
 
 /* ---------- PM و کارها ---------- */
@@ -1195,10 +1229,13 @@ function render(force){
   renderTop();
   if(!sb){app.innerHTML=viewSetup();return}
   if(!session){app.innerHTML=viewLogin();return}
+  var abx=app.querySelector('details.addbox'),abOpen=!!(abx&&abx.open);
   var openMs=[].map.call(app.querySelectorAll('details.ms[open]'),function(d){return d.dataset.ms});
   var vw=(!canWrite&&view!=='home')?'home':view;
   app.innerHTML=(VIEWS[vw]||VIEWS.home)();
   openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
+  if(abOpen){var ab2=app.querySelector('details.addbox');if(ab2)ab2.setAttribute('open','')}
+  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&setTab==='staff');
   ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
 }
 function syncFreq(p){
@@ -1265,6 +1302,10 @@ app.addEventListener('click',function(e){
     });
     return;
   }
+  if(act==='bulkhall'){
+    var hs=document.getElementById('bh-sel'),hv=hs?hs.value:'';if(!hv)return;
+    mutate(function(){cfg.staff.forEach(function(s){if(!s.hall||allHalls().indexOf(s.hall)<0)s.hall=hv})});return;
+  }
   if(act==='addstaff'){
     var sv=readStaff('ns');if(!sv)return;
     var dd=document.querySelector('details[data-ms="ms-ns"]');if(dd)dd.removeAttribute('open');
@@ -1309,6 +1350,7 @@ app.addEventListener('click',function(e){
 app.addEventListener('change',function(e){
   var el=e.target,act=el.dataset.act;
   if(!act)return;
+  if(act==='sff'){sf[el.dataset.k]=el.value.trim();render(true);return}
   if(act==='rpf'){rp[el.dataset.k]=el.value.trim();if(el.dataset.k==='hall')rp.machine='';rp.limit=40;render(true);return}
   if(act==='freqsel'){syncFreq(el.id.slice(0,2));return}
   if(act==='taskhall'){

@@ -409,7 +409,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -870,12 +870,12 @@ function viewMonth(){
 
 /* ---------- پرسنل ---------- */
 function staffFormHtml(p,s){
-  var kind=s?s.kind:'shift';
+  var b=s||(p==='ns'?lastAdd:null),kind=b?b.kind:'shift';
   return '<div class="row">'+
     '<div class="field"><label for="'+p+'-name">نام</label><input id="'+p+'-name" autocomplete="off" value="'+esc(s?s.name:'')+'"></div>'+
     '<div class="field"><label for="'+p+'-kind">نوع</label><select id="'+p+'-kind" data-act="kindsel">'+opt('shift','شیفتی',kind==='shift')+opt('day','روزکار (شنبه تا پنجشنبه)',kind==='day')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-team">تیم شیفت</label><select id="'+p+'-team"'+(kind==='day'?' disabled':'')+'>'+cfg.teams.map(function(t){return opt(t.id,t.name,s&&s.team===t.id)}).join('')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!s||!s.hall)+allHalls().concat(s&&s.hall&&allHalls().indexOf(s.hall)<0?[s.hall]:[]).map(function(x){return opt(x,x,s&&s.hall===x)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-team">تیم شیفت</label><select id="'+p+'-team"'+(kind==='day'?' disabled':'')+'>'+cfg.teams.map(function(t){return opt(t.id,t.name,b&&b.team===t.id)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',!b||!b.hall)+allHalls().concat(b&&b.hall&&allHalls().indexOf(b.hall)<0?[b.hall]:[]).map(function(x){return opt(x,x,b&&b.hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label>سمت (اختیاری، چند انتخابی)</label>'+msHtml('ms-'+p,cfg.lists.roles,s?rolesOf(s):[])+'</div></div>';
 }
 function readStaff(p){
@@ -1265,6 +1265,13 @@ function saveListEdit(k,i,v){
   if(cfg.lists[k].indexOf(v)>=0&&cfg.lists[k][i]!==v){notify('این گزینه از قبل هست.',true);return}
   mutate(function(){renameItem(k,i,v)});
 }
+function submitStaff(){
+  var sv=readStaff('ns');
+  if(!sv){var n0=document.getElementById('ns-name');if(n0)n0.focus();return}
+  lastAdd={kind:sv.kind,team:sv.team,hall:sv.hall};
+  var ok=mutate(function(){cfg.staff.push(Object.assign({id:uid()},sv))});
+  if(ok){var nn=document.getElementById('ns-name');if(nn)nn.focus();notify('«'+sv.name+'» به پرسنل اضافه شد.')}
+}
 app.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');
   if(!b||b.tagName==='SELECT'||b.tagName==='INPUT')return;
@@ -1306,11 +1313,7 @@ app.addEventListener('click',function(e){
     var hs=document.getElementById('bh-sel'),hv=hs?hs.value:'';if(!hv)return;
     mutate(function(){cfg.staff.forEach(function(s){if(!s.hall||allHalls().indexOf(s.hall)<0)s.hall=hv})});return;
   }
-  if(act==='addstaff'){
-    var sv=readStaff('ns');if(!sv)return;
-    var dd=document.querySelector('details[data-ms="ms-ns"]');if(dd)dd.removeAttribute('open');
-    mutate(function(){cfg.staff.push(Object.assign({id:uid()},sv))});return;
-  }
+  if(act==='addstaff'){submitStaff();return}
   if(act==='savestaff'){
     var sv2=readStaff('es');if(!sv2)return;
     mutate(function(){var s=cfg.staff.find(function(q){return q.id===b.dataset.id});if(s)Object.assign(s,sv2)});return;
@@ -1385,6 +1388,22 @@ app.addEventListener('change',function(e){
   }
 });
 app.addEventListener('keydown',function(e){
+  var ms=e.target.closest?e.target.closest('details.ms'):null;
+  if(e.key==='Tab'&&!e.shiftKey&&canWrite&&ms&&ms.dataset.ms==='ms-ns'){
+    var bx0=[].slice.call(ms.querySelectorAll('input[type=checkbox]')),isSum=e.target.tagName==='SUMMARY';
+    if((isSum&&!ms.open)||(!isSum&&e.target===bx0[bx0.length-1])||(isSum&&!bx0.length)){e.preventDefault();ms.removeAttribute('open');submitStaff();return}
+  }
+  if(ms&&(e.key==='ArrowDown'||e.key==='ArrowUp')){
+    var sm=ms.querySelector('summary');
+    if(e.target===sm){if(e.key==='ArrowDown'){e.preventDefault();ms.setAttribute('open','');var f0=ms.querySelector('input');if(f0)f0.focus()}}
+    else{
+      var bx=[].slice.call(ms.querySelectorAll('input[type=checkbox]')),i0=bx.indexOf(e.target);
+      if(i0>=0){e.preventDefault();var nx=bx[i0+(e.key==='ArrowDown'?1:-1)];if(nx)nx.focus();else if(e.key==='ArrowUp')sm.focus()}
+    }
+  }
+  if(e.key==='Escape'&&ms&&ms.open){ms.removeAttribute('open');ms.querySelector('summary').focus()}
+  if(e.key==='Enter'&&ms&&e.target.type==='checkbox'){e.preventDefault();e.target.click()}
+  if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.id==='ns-name'){e.preventDefault();submitStaff()}
   if(e.key==='Enter'&&e.target.id&&e.target.id.indexOf('ls-')===0){
     e.preventDefault();
     var bt=app.querySelector('[data-act="lstadd"][data-list="'+e.target.id.slice(3)+'"]');

@@ -275,6 +275,13 @@ details.addbox[open]>summary{margin-bottom:10px}
 .wrap.wide .filters .grow{grid-column:auto}
 .hallcol .group{gap:0}
 .hallcol .group>h3{padding-top:6px}
+.rolegrp{flex-direction:column;gap:2px;align-items:stretch}
+.rg-h{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.rg-h>b{min-width:0;font-size:14px;color:var(--ink)}
+.hline{display:flex;gap:8px;align-items:baseline;padding:2px 8px;border-inline-start:2px solid var(--line);margin-inline-start:4px}
+.hl-t{min-width:104px;font-size:12px;color:var(--ink2);flex:none}
+.hl-n{flex:1;min-width:0}
+.rolegrp>.hline+.hline{margin-top:2px}
 </style>
 </head>
 <body>
@@ -409,7 +416,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -735,8 +742,18 @@ function roleGroups(rows){
 function multiHall(){var h={};cfg.staff.forEach(function(s){if(s.hall)h[s.hall]=1});return Object.keys(h).length>1}
 function peopleHtml(rows){
   if(!rows.length)return '<p class="muted">کسی در این گروه نیست.</p>';
+  var multi=multiHall();
+  function nm(r){return esc(r.s.name)+(r.o&&r.o!==r.base?' <small class="ovr">(دستی)</small>':'')}
   return roleGroups(rows).map(function(g){
-    return '<div class="rolegrp"><b>'+esc(g.role)+' <small>'+fa(g.rows.length)+'</small></b><span>'+g.rows.map(function(r){return esc(r.s.name)+(multiHall()&&r.s.hall?' <small>('+esc(r.s.hall)+')</small>':'')+(r.o&&r.o!==r.base?' <small class="ovr">(دستی)</small>':'')}).join('، ')+'</span></div>';
+    var h='<div class="rolegrp"><div class="rg-h"><b>'+esc(g.role)+'</b><small>'+fa(g.rows.length)+' نفر</small></div>';
+    if(!multi)return h+'<div class="hline"><span class="hl-n">'+g.rows.map(nm).join('، ')+'</span></div></div>';
+    var by={};g.rows.forEach(function(r){var k=r.s.hall||'بدون سالن';(by[k]=by[k]||[]).push(r)});
+    var order=cfg.lists.halls.concat(Object.keys(by).filter(function(k){return cfg.lists.halls.indexOf(k)<0&&k!=='بدون سالن'}),['بدون سالن']);
+    order.forEach(function(k){
+      if(!by[k])return;
+      h+='<div class="hline"><span class="hl-t">'+esc(k)+' <small>('+fa(by[k].length)+')</small></span><span class="hl-n">'+by[k].map(nm).join('، ')+'</span></div>';
+    });
+    return h+'</div>';
   }).join('');
 }
 function taskRow(it,j,showMachine,showSk){
@@ -994,35 +1011,40 @@ function oneDone(t){
   var d=t.freq==='once'?(t.date&&t.date.d):0,sh=t.shift||'any',sks=sh==='both'?['D','N']:(sh==='D'||sh==='N'?[sh]:['']);
   return sks.every(function(sk){return !!doneVal(t,d,sk)});
 }
+function taskItem(t){
+  if(isEdit('task',t.id))return '<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
+  return '<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
+}
 function viewPM(){
   var h='';
   if(canWrite){
-    h+='<section class="card stack"><h2>افزودن کار</h2><p class="hint">اینجا کارها را تعریف می‌کنید و پرسنل در صفحه‌ی خانه می‌بینند.</p>';
+    h+='<details class="card addbox"'+(cfg.tasks.length?'':' open')+'><summary><b>افزودن کار</b></summary><div class="stack"><p class="hint">اینجا کارها را تعریف می‌کنید و پرسنل در صفحه‌ی خانه می‌بینند.</p>';
     h+=cfg.machines.length?taskFormHtml('nt',null)+'<div class="row"><button class="btn pri" data-act="addtask">افزودن</button></div>':'<div class="empty">اول دستگاه‌ها را در <a href="#settings">تنظیمات</a> تعریف کنید.</div>';
-    h+='</section>';
+    h+='</div></details>';
   }
   if(!cfg.tasks.length)return h+'<div class="empty">هنوز کاری تعریف نشده است.</div>';
-  var halls={};
-  cfg.tasks.forEach(function(t){var m=machineOf(t.machine),hn=m&&m.hall?m.hall:'بدون سالن';(halls[hn]=halls[hn]||[]).push(t)});
-  Object.keys(halls).forEach(function(hn){
-    h+='<section class="card stack"><h2>'+esc(hn)+'</h2>';
+  h+='<div class="filters"><div class="field grow"><label for="tf-q">جستجو (عنوان کار یا دستگاه)</label><input id="tf-q" type="search" data-act="tff" value="'+esc(tf.q)+'" autocomplete="off"></div></div>';
+  var q=tf.q.toLowerCase(),halls={};
+  cfg.tasks.forEach(function(t){
+    var m=machineOf(t.machine);
+    if(q&&(t.title+' '+(m?m.name:'')).toLowerCase().indexOf(q)<0)return;
+    var hn=m&&m.hall?m.hall:'بدون سالن';(halls[hn]=halls[hn]||[]).push(t);
+  });
+  var order=allHalls().concat(['بدون سالن']).filter(function(k){return halls[k]});
+  Object.keys(halls).forEach(function(k){if(order.indexOf(k)<0)order.push(k)});
+  if(!order.length)return h+'<div class="empty">موردی پیدا نشد.</div>';
+  h+='<div class="hallcols">';
+  order.forEach(function(hn){
+    h+='<section class="card stack hallcol"><div class="row between"><h2>'+esc(hn)+'</h2><small>'+fa(halls[hn].length)+' کار</small></div>';
     var byM={};
     halls[hn].forEach(function(t){(byM[t.machine]=byM[t.machine]||[]).push(t)});
     Object.keys(byM).forEach(function(mid){
       var m=machineOf(mid);
-      h+='<div class="group"><h3>'+esc(m?m.name:'دستگاه حذف‌شده')+'</h3>';
-      byM[mid].forEach(function(t){
-        if(isEdit('task',t.id)){
-          h+='<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
-          return;
-        }
-        h+='<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
-      });
-      h+='</div>';
+      h+='<div class="group"><h3>'+esc(m?m.name:'دستگاه حذف‌شده')+' <small>('+fa(byM[mid].length)+')</small></h3>'+byM[mid].map(taskItem).join('')+'</div>';
     });
     h+='</section>';
   });
-  return h;
+  return h+'</div>';
 }
 
 /* ---------- چرخه شیفت ---------- */
@@ -1241,7 +1263,7 @@ function render(force){
   app.innerHTML=(VIEWS[vw]||VIEWS.home)();
   openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
   if(abOpen){var ab2=app.querySelector('details.addbox');if(ab2)ab2.setAttribute('open','')}
-  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&(setTab==='staff'||setTab==='machines'));
+  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&(setTab==='staff'||setTab==='machines')||vw==='manage'||vw==='home');
   ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
 }
 function syncFreq(p){
@@ -1374,6 +1396,7 @@ app.addEventListener('click',function(e){
 app.addEventListener('change',function(e){
   var el=e.target,act=el.dataset.act;
   if(!act)return;
+  if(act==='tff'){tf.q=el.value.trim();render(true);return}
   if(act==='mff'){mf.q=el.value.trim();render(true);return}
   if(act==='sff'){sf[el.dataset.k]=el.value.trim();render(true);return}
   if(act==='rpf'){rp[el.dataset.k]=el.value.trim();if(el.dataset.k==='hall')rp.machine='';rp.limit=40;render(true);return}

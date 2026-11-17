@@ -311,6 +311,16 @@ details.addbox[open]>summary{margin-bottom:10px}
 .mtile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
 .mtile.bad{border-color:var(--crit)}
 .mtile small{color:var(--ink2)}
+
+/* resolve */
+.resbox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+.resform{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px;align-items:stretch}
+.resform .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.resform .field{flex:1 1 110px;min-width:0}
+.st-skip{background:var(--warn-bg);color:var(--warn)}
+.st-cancel,.st-post{background:var(--off-bg);color:var(--off)}
+a.kbig{color:inherit;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+a.kbig:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -390,7 +400,7 @@ var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت 
 var SHTXT={any:'',D:'شیفت روز',N:'شیفت شب',both:'هر شیفت'};
 var VIEWS_ORDER=['home','report','rolls','manage','settings'];
 var OLD_TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
-var MS_PH='انتخاب سمت (اختیاری)';
+var MS_PH='انتخاب سمت (اختیاری)',KPH='عادی (بدون ثبت غلتک)';
 
 var $=function(s){return document.querySelector(s)};
 var fa=function(s){return String(s).replace(/\d/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[d]})};
@@ -437,17 +447,23 @@ function normalize(d){
     if(!t.shift)t.shift='any';
     if(t.desc==null)t.desc='';
     if(t.freq==='monthly'&&!(+t.every>0))t.every=1;
-    if(t.kind!=='work'&&t.kind!=='backup')t.kind='';
+    t.kinds=kindsOf(t);delete t.kind;
     return t;
   });
   return o;
 }
 
+function kindsOf(t){
+  if(Array.isArray(t.kinds))return t.kinds.filter(function(k){return k==='work'||k==='backup'});
+  if(t.kind==='work')return['work'];
+  if(t.kind==='backup')return['work','backup'];
+  return[];
+}
 var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -486,6 +502,8 @@ function docOf(t){
 }
 function doneKey(t,jd,sk){return t.id+'_'+(t.freq==='range'?'r':jd)+(sk?'_'+sk:'')}
 function doneVal(t,jd,sk){return stateFor(docOf(t)).done[doneKey(t,jd,sk)]}
+function isDone(dv){return !!dv&&!dv.st}
+var RES={skip:'غیرقابل‌انجام',cancel:'لغو شد',post:'به تعویق افتاد'};
 function doneJ(v){
   if(!v||typeof v!=='object'||!v.at)return null;
   var d=new Date(v.at);if(isNaN(d))return null;
@@ -525,6 +543,7 @@ function tasksDue(j){
 /* شمارش برای آمار: کار بازه‌ای فقط یک‌بار حساب می‌شود (روز انجام، یا روز آخر بازه اگر انجام نشده) */
 function inst(it,j){
   var x=d2j(j),dv=doneVal(it.t,x.jd,it.sk);
+  if(dv&&dv.st)return{due:0,done:0};
   if(it.rng){if(dv)return{due:1,done:1};return it.last?{due:1,done:0}:{due:0,done:0}}
   return{due:1,done:dv?1:0};
 }
@@ -740,9 +759,10 @@ function signOut(){
 }
 
 /* ---------- اجزای مشترک رابط ---------- */
-function msHtml(id,opts,sel){
+function msHtml(id,opts,sel,ph){
+  ph=ph||MS_PH;
   var all=opts.slice();sel.forEach(function(x){if(all.indexOf(x)<0)all.push(x)});
-  var h='<details class="ms" data-ms="'+esc(id)+'"><summary aria-label="سمت"><span class="ms-t">'+esc(sel.length?sel.join('، '):MS_PH)+'</span></summary><div class="ms-panel">';
+  var h='<details class="ms" data-ms="'+esc(id)+'" data-ph="'+esc(ph)+'"><summary aria-label="'+esc(ph)+'"><span class="ms-t">'+esc(sel.length?sel.join('، '):ph)+'</span></summary><div class="ms-panel">';
   if(!all.length)h+='<div class="ms-empty">سمتی تعریف نشده است. از «تنظیمات» اضافه کنید.</div>';
   all.forEach(function(o){
     h+='<label class="ms-opt"><input type="checkbox" value="'+esc(o)+'" data-act="msform"'+(sel.indexOf(o)>=0?' checked':'')+'><span>'+esc(o)+'</span></label>';
@@ -833,38 +853,42 @@ function recFor(t,sk){
   for(var i=0;i<rs.length;i++)if(rs[i].id===k)return rs[i];
   return null;
 }
-var KINDL={work:'تعویض ورک رول',backup:'تعویض ورک رول و بک‌آپ رول'};
+var KL={work:'تعویض ورک رول',backup:'تعویض بک‌آپ رول'};
+function kindLabel(t){return kindsOf(t).map(function(k){return KL[k]}).join(' + ')}
+function hasW(t){return kindsOf(t).indexOf('work')>=0}
+function hasB(t){return kindsOf(t).indexOf('backup')>=0}
+function recKind(r){return r.k==='both'||r.k==='backup'?'ورک + بک‌آپ':(r.k==='bak'?'بک‌آپ رول':'ورک رول')}
 function rsumHtml(r,m){
   function c(l,v){return '<span class="rc"><small>'+l+'</small><b>'+v+'</b></span>'}
   return '<div class="rgrid">'+c('تاریخ',fa(dstr(r.date)))+c('شماره غلتک',esc(r.no||'—'))+c('قطر',fnum(r.dia))+c('رافنس',esc(r.rough===''||r.rough==null?'—':fnum(r.rough)===('—')?r.rough:(typeof r.rough==='number'?fnum(r.rough):esc(r.rough))))+c('کرون',esc(r.crown===''||r.crown==null?'—':(typeof r.crown==='number'?fnum(r.crown):esc(r.crown))))+
     c('شیم پیشنهادی',fnum(r.shimSug))+c('شیم اجرا‌شده',fnum(r.shim))+c('بک‌آپ بالا',fnum(r.bt))+c('بک‌آپ پایین',fnum(r.bb))+'</div>';
 }
 function rollPanel(it,j){
-  var t=it.t;if(!t.kind)return '';
+  var t=it.t;if(!kindsOf(t).length)return '';
   var sk=it.sk||'';
   if(rollEdit&&rollEdit.tid===t.id&&rollEdit.sk===sk)return rollForm(it,j);
   var r=recFor(t,sk),a=' data-tid="'+esc(t.id)+'" data-sk="'+esc(sk)+'" data-j="'+j+'"';
-  var h='<div class="rollbox"><b class="rk">'+KINDL[t.kind]+'</b>';
+  var h='<div class="rollbox"><b class="rk">'+kindLabel(t)+'</b>';
   h+=r?rsumHtml(r):'<div class="rwarn">اطلاعات غلتک هنوز ثبت نشده است.</div>';
   if(canWrite)h+='<button class="btn sm" data-act="rollopen"'+a+'>'+(r?'ویرایش اطلاعات غلتک':'ثبت اطلاعات و شیم پیشنهادی')+'</button>';
   return h+'</div>';
 }
 function rfld(id,label,v,ph){return '<div class="field"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="text" inputmode="decimal" autocomplete="off" value="'+esc(v==null?'':v)+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+'></div>'}
 function rollForm(it,j){
-  var t=it.t,sk=it.sk||'',m=machineOf(t.machine)||{},isB=t.kind==='backup',r=recFor(t,sk);
+  var t=it.t,sk=it.sk||'',m=machineOf(t.machine)||{},isB=hasB(t),isW=hasW(t),r=recFor(t,sk);
   var xj=d2j(Math.min(j,todayJ)),dd=r?r.date:{y:xj.jy,m:xj.jm,d:xj.jd},jd=dj(dd),kn=backupAt(t.machine,jd,r&&r.id);
   var bt=r&&typeof r.bt==='number'?r.bt:(kn?kn.bt:null),bb=r&&typeof r.bb==='number'?r.bb:(kn?kn.bb:null);
-  var h='<div class="rollform stack"><b class="rk">'+KINDL[t.kind]+' · '+esc(m.name||'')+'</b>';
+  var h='<div class="rollform stack"><b class="rk">'+kindLabel(t)+' · '+esc(m.name||'')+'</b>';
   h+='<div class="row">'+dateFields('rl','dt',dd)+'</div>';
-  h+='<div class="row">'+rfld('rl-no','شماره غلتک ورک رول',r?r.no:'')+rfld('rl-dia','قطر ورک رول (mm)',r?lnum(r.dia):'')+rfld('rl-rough','رافنس',r?(r.rough===''?'':r.rough):'')+rfld('rl-crown','کرون',r?(r.crown===''?'':r.crown):'')+'</div>';
+  if(isW)h+='<div class="row">'+rfld('rl-no','شماره غلتک ورک رول',r?r.no:'')+rfld('rl-dia','قطر ورک رول (mm)',r?lnum(r.dia):'')+rfld('rl-rough','رافنس',r?(r.rough===''?'':r.rough):'')+rfld('rl-crown','کرون',r?(r.crown===''?'':r.crown):'')+'</div>';
   if(!isB&&kn){
     h+='<p class="hint">قطر بک‌آپ از آخرین تعویض بک‌آپ ('+fa(dstr(kn.date))+') خودکار آمده است: بالا '+fnum(kn.bt)+' · پایین '+fnum(kn.bb)+'<input id="rl-bt" type="hidden" value="'+lnum(bt)+'"><input id="rl-bb" type="hidden" value="'+lnum(bb)+'"></p>';
   }else{
     h+='<div class="row">'+rfld('rl-bt','قطر بک‌آپ رول بالا (mm)',lnum(bt))+rfld('rl-bb','قطر بک‌آپ رول پایین (mm)',lnum(bb))+'</div>';
     if(!isB)h+='<p class="hint">هنوز قطر بک‌آپ این دستگاه ثبت نشده است. یک‌بار وارد کنید؛ برای تعویض‌های بعدی خودکار می‌آید.</p>';
   }
-  h+='<div class="shimbox"><small>شیم پیشنهادی</small><b id="rl-sug">—</b><small id="rl-formula" dir="ltr"></small></div>';
-  h+='<div class="row">'+rfld('rl-shim','شیم اجرا‌شده (mm) — بعد از انجام پر شود',r?lnum(r.shim):'')+'</div>';
+  if(isW){h+='<div class="shimbox"><small>شیم پیشنهادی</small><b id="rl-sug">—</b><small id="rl-formula" dir="ltr"></small></div>';
+  h+='<div class="row">'+rfld('rl-shim','شیم اجرا‌شده (mm) — بعد از انجام پر شود',r?lnum(r.shim):'')+'</div>'}
   h+='<div class="row"><button class="btn pri" data-act="rollsave">ذخیره‌ی اطلاعات</button><button class="btn" data-act="rollcancel">انصراف</button></div></div>';
   return h;
 }
@@ -881,10 +905,11 @@ function saveRoll(){
   var m=machineOf(t.machine);if(!m)return;
   var dt=readDate('rl','dt');if(!dt){notify('تاریخ تعویض درست نیست.',true);return}
   var dia=num(val('rl-dia')),bt=num(val('rl-bt')),bb=num(val('rl-bb')),no=val('rl-no');
-  if(!no&&dia===null){notify('حداقل شماره یا قطر غلتک را وارد کنید.',true);return}
-  if(t.kind==='backup'&&(bt===null||bb===null)){notify('برای تعویض بک‌آپ، قطر بک‌آپ بالا و پایین را وارد کنید.',true);return}
+  if(hasW(t)&&!no&&dia===null){notify('حداقل شماره یا قطر غلتک را وارد کنید.',true);return}
+  if(hasW(t)&&!hasB(t)&&(no||dia!==null)&&false){}
+  if(hasB(t)&&(bt===null||bb===null)){notify('برای تعویض بک‌آپ، قطر بک‌آپ بالا و پایین را وارد کنید.',true);return}
   var old=recFor(t,re.sk),key=recKey(t,re.sk);
-  var rec={k:t.kind,task:t.id,sk:re.sk,date:dt,no:no,dia:dia,rough:numOrText(val('rl-rough')),crown:numOrText(val('rl-crown')),bt:bt,bb:bb,shimSug:shimSug(m,dia,bb),shim:num(val('rl-shim')),by:old?old.by:userName(),at:old?old.at:new Date().toISOString()};
+  var rec={k:hasB(t)?(hasW(t)?'both':'bak'):'work',task:t.id,sk:re.sk,date:dt,no:no,dia:dia,rough:numOrText(val('rl-rough')),crown:numOrText(val('rl-crown')),bt:bt,bb:bb,shimSug:hasW(t)?shimSug(m,dia,bb):null,shim:hasW(t)?num(val('rl-shim')):null,by:old?old.by:userName(),at:old?old.at:new Date().toISOString()};
   Object.keys(rec).forEach(function(k){if(rec[k]===null)delete rec[k]});
   var nd=rollDocId(m.id,dt.y),st=stateFor(nd);st.x=st.x||{};st.x[key]=rec;
   var set={};set['x:'+key]=rec;
@@ -905,7 +930,7 @@ function viewRolls(){
     else{
       h+='<div class="scroll"><table class="prev rtab"><thead><tr><th>تاریخ</th><th>نوع</th><th>شماره غلتک</th><th>قطر</th><th>رافنس</th><th>کرون</th><th>شیم پیشنهادی</th><th>شیم اجرا</th><th>بک‌آپ بالا</th><th>بک‌آپ پایین</th><th>ثبت‌کننده</th></tr></thead><tbody>';
       rs.forEach(function(r){
-        h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+(r.k==='backup'?'ورک + بک‌آپ':'ورک رول')+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
+        h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+recKind(r)+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
       });
       h+='</tbody></table></div>';
     }
@@ -917,7 +942,7 @@ function exportRolls(){
   var q=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   var out=[['دستگاه','تاریخ','نوع','شماره غلتک','قطر','رافنس','کرون','شیم پیشنهادی','شیم اجرا','بک‌آپ بالا','بک‌آپ پایین','ثبت‌کننده']];
   var ms=rl.mid?rollMachines().filter(function(m){return m.id===rl.mid}):rollMachines();
-  ms.forEach(function(m){recsOf(m.id).forEach(function(r){out.push([m.name,dstr(r.date),r.k==='backup'?'ورک + بک‌آپ':'ورک رول',r.no||'',lnum(r.dia),r.rough,r.crown,lnum(r.shimSug),lnum(r.shim),lnum(r.bt),lnum(r.bb),r.by||''])})});
+  ms.forEach(function(m){recsOf(m.id).forEach(function(r){out.push([m.name,dstr(r.date),recKind(r),r.no||'',lnum(r.dia),r.rough,r.crown,lnum(r.shimSug),lnum(r.shim),lnum(r.bt),lnum(r.bb),r.by||''])})});
   var csv='\ufeff'+out.map(function(r){return r.map(q).join(',')}).join('\r\n');
   try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='rolls-'+tj.jy+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}catch(e){notify('دریافت فایل ممکن نشد.',true)}
 }
@@ -932,13 +957,50 @@ function noteBox(k,doc,dv){
   if(dv&&canWrite)h+='<button class="btn sm linkbtn" data-act="noteedit"'+a+'>'+(note?'ویرایش توضیحات':'افزودن توضیحات')+'</button>';
   return h;
 }
+/* ---------- تعیین تکلیف: لغو / غیرقابل‌انجام / تعویق ---------- */
+function resKey(t,j,sk){return doneKey(t,d2j(j).jd,sk)}
+function resUi(t,j,sk,done){
+  if(done||!canWrite&&!doneVal(t,d2j(j).jd,sk))return '';
+  var k=resKey(t,j,sk),doc=docOf(t),dv=doneVal(t,d2j(j).jd,sk),id=k+'|'+doc;
+  var a=' data-key="'+esc(k)+'" data-doc="'+esc(doc)+'" data-tid="'+esc(t.id)+'" data-j="'+j+'" data-sk="'+esc(sk||'')+'"';
+  if(dv&&dv.st){
+    var to=dv.to?' ← '+fa(dstr(dv.to)):'';
+    return '<div class="resbox"><span class="chip st-'+dv.st+'">'+RES[dv.st]+(dv.st==='post'&&dv.to?' تا '+fa(dstr(dv.to)):'')+'</span><small>'+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')+'</small>'+(dv.note?'<small class="t-desc">'+esc(dv.note)+'</small>':'')+(canWrite?'<button class="btn sm linkbtn" data-act="resundo"'+a+'>برگرداندن به حالت قبل</button>':'')+'</div>';
+  }
+  if(!canWrite)return '';
+  if(resEdit!==id)return '<div class="resbox"><button class="btn sm" data-act="resopen" data-rid="'+esc(id)+'">تعیین تکلیف</button></div>';
+  var nx=d2j(Math.max(j,todayJ)+1),nd={y:nx.jy,m:nx.jm,d:nx.jd};
+  return '<div class="resbox resform stack"><b>تکلیف این کار چیست؟ <small>(برای «انجام شد» تیک را بزنید)</small></b>'+
+    '<div class="field"><label for="rs-note">توضیح (اختیاری)</label><input id="rs-note" maxlength="300" autocomplete="off"></div>'+
+    '<div class="row"><button class="btn sm" data-act="resset" data-st="skip"'+a+'>غیرقابل‌انجام</button><button class="btn sm" data-act="resset" data-st="cancel"'+a+'>لغو کار</button></div>'+
+    '<div class="row"><span>تعویق به تاریخ:</span>'+dateFields('rs','dt',nd)+'<button class="btn sm pri" data-act="resset" data-st="post"'+a+'>تعویق</button></div>'+
+    '<button class="btn sm" data-act="rescancel">بستن</button></div>';
+}
+function setRes(b){
+  var st=b.dataset.st,k=b.dataset.key,doc=b.dataset.doc,t=cfg.tasks.find(function(q){return q.id===b.dataset.tid}),sk=b.dataset.sk||'',j=+b.dataset.j;
+  if(!t)return;
+  var sv={by:userName(),at:new Date().toISOString(),st:st},n=val('rs-note');if(n)sv.note=n;
+  if(st==='post'){
+    var to=readDate('rs','dt');if(!to){notify('تاریخ جدید درست نیست.',true);return}
+    var tj2=dj(to);if(tj2<=j){notify('تاریخ جدید باید بعد از تاریخ این کار باشد.',true);return}
+    sv.to=to;
+    var okk=mutate(function(){
+      var c=Object.assign({},t,{id:uid(),freq:'once',date:to,shift:sk||(t.shift==='both'?'any':t.shift),postFrom:t.id});
+      delete c.from;delete c.to;delete c.weekday;delete c.monthDay;delete c.every;
+      cfg.tasks.push(c);
+    });
+    if(!okk)return;
+  }
+  var stt=stateFor(doc);stt.done[k]=sv;var o={};o['d:'+k]=sv;patchMonth(o,[],doc);
+  resEdit=null;render(true);notify(st==='post'?'کار به '+fa(dstr(sv.to))+' منتقل شد.':'تکلیف کار ثبت شد.');
+}
 function taskRow(it,j,showMachine,showSk){
-  var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=doneVal(t,x.jd,it.sk),done=!!dv,m=machineOf(t.machine);
+  var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=doneVal(t,x.jd,it.sk),done=isDone(dv),m=machineOf(t.machine);
   var by=(dv&&typeof dv==='object')?(' · '+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')):'';
-  return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1"'+(t.kind?' data-tid="'+esc(t.id)+'" data-sk="'+esc(it.sk||'')+'"':'')+' data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
+  return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1"'+(kindsOf(t).length?' data-tid="'+esc(t.id)+'" data-sk="'+esc(it.sk||'')+'"':'')+' data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
     '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
     (it.rng?'<small class="t-rng">یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+'</small>':'')+(t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
-    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+rollPanel(it,j)+noteBox(k,docOf(t),dv)+'</div>';
+    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+rollPanel(it,j)+resUi(t,j,it.sk,done)+noteBox(k,docOf(t),dv)+'</div>';
 }
 function instGroups(list,j,showSk){
   if(!list.length)return '';
@@ -974,12 +1036,13 @@ function lateList(st,x){
 }
 function lateRow(l,x){
   var t=l.it.t,m=machineOf(t.machine),k=doneKey(t,l.d,l.it.sk);
-  return '<label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+dis()+'><span class="t-main"><b>'+esc(t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span>'+(l.it.sk?shiftChip(l.it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
+  var st0=j2d(x.jy,x.jm,1);
+  return '<div class="taskw"><label class="task"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+dis()+'><span class="t-main"><b>'+esc(t.title)+'</b><small>'+esc(m?m.name:'')+' · <span class="t-late">'+fa(l.d)+' '+MONTHS[x.jm-1]+'</span></small></span>'+(l.it.sk?shiftChip(l.it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+resUi(t,st0+l.d-1,l.it.sk,false)+'</div>';
 }
 function inFilter(it,j){
   if(todayFilter==='all')return true;
   var dv=doneVal(it.t,d2j(j).jd,it.sk);
-  return todayFilter==='done'?!!dv:!dv;
+  return todayFilter==='done'?isDone(dv):!isDone(dv);
 }
 function viewToday(){
   var j=todayJ,x=d2j(j),rows=staffDay(j),fri=satIdx(j)===6,due=tasksDue(j);
@@ -989,14 +1052,14 @@ function viewToday(){
   var h='<div class="stack"><div><div class="eyebrow">امروز</div><h1 class="date">'+fmtDate(j)+'</h1></div>';
   h+='<div class="kpis">'+
     kpi('کارهای امروز',fa(td.done)+' از '+fa(td.due),'<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div>','')+
-    kpi('عقب‌افتاده',fa(late.length),late.length?'<a href="#report" data-act="gorep" data-st="late">مشاهده در گزارش</a>':'<small>چیزی عقب نیست</small>',late.length?'crit':'')+
+    kpi('عقب‌افتاده','<a class="kbig" href="#report" data-act="gorep" data-st="late">'+fa(late.length)+'</a>',late.length?'<a href="#report" data-act="gorep" data-st="late">مشاهده و تعیین تکلیف</a>':'<small>چیزی عقب نیست</small>',late.length?'crit':'')+
     kpi('شیفت روز',fa(count(rows,'D'))+' نفر','<small>تیم '+esc(teamNames(j,'D'))+'</small>','d')+
     kpi('شیفت شب',fa(count(rows,'N'))+' نفر','<small>تیم '+esc(teamNames(j,'N'))+'</small>','n')+'</div>';
   h+='<div class="seg sm" role="group" aria-label="فیلتر کارها">'+[['all','همه'],['open','انجام‌نشده'],['done','انجام‌شده']].map(function(o){return '<button data-act="tfilter" data-t="'+o[0]+'" aria-pressed="'+(todayFilter===o[0])+'">'+o[1]+'</button>'}).join('')+'</div>';
   h+='<div class="two">';
   ['D','N'].forEach(function(c){
     var on=rows.filter(function(r){return r.eff===c}),all=due.filter(function(i){return i.sk===c}),mine=all.filter(function(i){return inFilter(i,j)});
-    var dn=all.filter(function(i){return doneVal(i.t,x.jd,i.sk)}).length;
+    var dn=all.filter(function(i){return isDone(doneVal(i.t,x.jd,i.sk))}).length;
     h+='<section class="card shift-card '+c+' stack"><div class="row between"><h2>شیفت '+SHL[c]+'</h2><span class="chip sh-'+c+'">تیم '+esc(teamNames(j,c))+'</span></div>';
     h+='<div class="group"><h3>پرسنل ('+fa(on.length)+' نفر)</h3>'+(cfg.staff.length?peopleHtml(on):'<span class="muted">پرسنلی ثبت نشده است.</span>')+warnShift(rows,c)+'</div>';
     h+='<div class="group"><h3>کارهای این شیفت'+(all.length?' ('+fa(dn)+' از '+fa(all.length)+')':'')+'</h3>'+(mine.length?instGroups(mine,j,false).replace(/<div class="group"><h3>/g,'<div class="group sub"><h3>'):'<small class="muted">'+(all.length?'موردی با این فیلتر نیست.':'کاری برای این شیفت تعریف نشده است.')+'</small>')+'</div></section>';
@@ -1008,7 +1071,7 @@ function viewToday(){
   }
   var anyAll=due.filter(function(i){return i.sk===''}),any=anyAll.filter(function(i){return inFilter(i,j)});
   if(cfg.tasks.length){
-    h+='<section class="card stack"><div class="row between"><h2>کارهای بدون شیفت</h2><small>'+fa(anyAll.filter(function(i){return doneVal(i.t,x.jd,i.sk)}).length)+' از '+fa(anyAll.length)+' انجام شد</small></div>';
+    h+='<section class="card stack"><div class="row between"><h2>کارهای بدون شیفت</h2><small>'+fa(anyAll.filter(function(i){return isDone(doneVal(i.t,x.jd,i.sk))}).length)+' از '+fa(anyAll.length)+' انجام شد</small></div>';
     h+=any.length?instGroups(any,j,false):'<div class="empty">'+(anyAll.length?'موردی با این فیلتر نیست.':'کار بدون شیفتی برای امروز نیست.')+'</div>';
     h+='</section>';
   }else h+='<div class="empty">هنوز کاری تعریف نشده است. از بخش <a href="#manage">مدیریت</a> اضافه کنید.</div>';
@@ -1016,7 +1079,7 @@ function viewToday(){
   if(rest.length)h+='<p class="hint">استراحت و مرخصی: '+rest.map(function(r){return esc(r.s.name)+(r.eff==='L'?' (مرخصی)':'')}).join('، ')+'</p>';
   if(!cfg.staff.length)h+='<div class="empty">هنوز پرسنلی ثبت نشده است. از <a href="#settings">تنظیمات</a> (تب پرسنل) شروع کنید.</div>';
   if(late.length){
-    h+='<details class="card late"><summary><b>کارهای عقب‌افتاده</b><span class="chip st-late">'+fa(late.length)+'</span></summary><div class="stack">';
+    h+='<details class="card late" open><summary><b>کارهای عقب‌افتاده</b><span class="chip st-late">'+fa(late.length)+'</span></summary><div class="stack">';
     late.slice(-10).reverse().forEach(function(l){h+=lateRow(l,x)});
     h+='<a href="#report" data-act="gorep" data-st="late">'+(late.length>10?'مشاهده‌ی همه‌ی '+fa(late.length)+' مورد در گزارش':'مشاهده در گزارش')+'</a></div></details>';
   }
@@ -1152,7 +1215,7 @@ function taskFormHtml(p,t){
     '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
     '<div class="row">'+
     '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t&&t.type===x)}).join('')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-kind">کار ویژه</label><select id="'+p+'-kind">'+opt('','عادی',!(t&&t.kind))+opt('work','تعویض ورک رول',t&&t.kind==='work')+opt('backup','تعویض ورک رول و بک‌آپ رول',t&&t.kind==='backup')+'</select></div>'+
+    '<div class="field"><label>کار ویژه (چند مورد قابل انتخاب)</label>'+msHtml('ms-'+p+'-kind',[KL.work,KL.backup],t?kindsOf(t).map(function(k){return KL[k]}):[],KPH)+'</div>'+
     '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+SHOPT.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
     '<div class="row" id="'+p+'-g-wd"><div class="field"><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div></div>'+
@@ -1169,17 +1232,18 @@ function machineOptions(hall,sel){
   return list.map(function(m){return opt(m.id,m.name,m.id===sel)}).join('');
 }
 function readTask(p){
-  var mid=val(p+'-machine'),title=val(p+'-title'),kind=val(p+'-kind');
-  if(kind&&!title)title=KINDL[kind];
+  var mid=val(p+'-machine'),title=val(p+'-title'),kdt=document.querySelector('details[data-ms="ms-'+p+'-kind"]'),kinds=[];
+  if(kdt)msChecked(kdt).forEach(function(l){if(l===KL.work)kinds.push('work');if(l===KL.backup)kinds.push('backup')});
+  if(kinds.length&&!title)title=kinds.map(function(k){return KL[k]}).join(' و ');
   if(!mid){notify('اول سالن و دستگاه را انتخاب کنید. دستگاه‌ها را در «تنظیمات» تعریف کنید.',true);return null}
   if(!title){notify('عنوان کار را بنویسید.',true);return null}
   var f=val(p+'-freq');
-  if(kind){
+  if(kinds.length){
     var mm=machineOf(mid);
     if(!mm||!mm.roll){notify('این دستگاه «غلتک‌دار» علامت نخورده است. در تنظیمات، تب دستگاه‌ها، آن را ویرایش کنید.',true);return null}
     if(f!=='once'&&f!=='range'){notify('تعویض غلتک باید «یک روز مشخص» یا «یک‌بار در یک بازه» باشد.',true);return null}
   }
-  var o={kind:kind,machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
+  var o={kinds:kinds,machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
   if(f==='weekly')o.weekday=+val(p+'-wd')||0;
   if(f==='monthly'){o.monthDay=Math.max(1,Math.min(31,+val(p+'-md')||1));o.every=+val(p+'-ev')||1}
   if(f==='daily'||f==='weekly'||f==='monthly'){o.start=readDate(p,'st');if(!o.start){notify('تاریخ شروع درست نیست.',true);return null}}
@@ -1193,11 +1257,11 @@ function readTask(p){
 }
 function oneDone(t){
   var d=t.freq==='once'?(t.date&&t.date.d):0,sh=t.shift||'any',sks=sh==='both'?['D','N']:(sh==='D'||sh==='N'?[sh]:['']);
-  return sks.every(function(sk){return !!doneVal(t,d,sk)});
+  return sks.every(function(sk){var v=doneVal(t,d,sk);return !!v&&(!v.st||v.st==='post'||v.st==='cancel'||v.st==='skip')});
 }
 function taskItem(t){
   if(isEdit('task',t.id))return '<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
-  return '<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span>'+(t.kind?'<span class="chip sh-N">'+KINDL[t.kind]+'</span>':'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
+  return '<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span>'+(kindsOf(t).length?'<span class="chip sh-N">'+kindLabel(t)+'</span>':'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
 }
 function viewPM(){
   var h='';
@@ -1326,15 +1390,15 @@ function viewSettings(){
 }
 
 /* ---------- گزارش ---------- */
-var RST={done:'انجام شد',late:'عقب‌افتاده',today:'امروز',future:'آینده'};
+var RST={done:'انجام شد',late:'عقب‌افتاده',today:'امروز',future:'آینده',skip:'غیرقابل‌انجام',cancel:'لغو شد',post:'تعویق'};
 function reportRows(){
   var st=monthStats(99),out=[];
   for(var d=st.len;d>=1;d--){
     var j=st.first+d-1;
     st.info[d].tasks.forEach(function(it){
-      var c=inst(it,j);if(!c.due&&!c.done)return;
-      var dv=doneVal(it.t,d,it.sk),m=machineOf(it.t.machine),o=(dv&&typeof dv==='object');
-      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?'done':(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):'',note:noteOf(dv),dv:dv,key:doneKey(it.t,d,it.sk),doc:docOf(it.t)});
+      var c=inst(it,j),dv=doneVal(it.t,d,it.sk);if(!c.due&&!c.done&&!(dv&&dv.st))return;
+      var m=machineOf(it.t.machine),o=(dv&&typeof dv==='object');
+      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?(dv.st||'done'):(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):'',note:noteOf(dv),dv:dv,key:doneKey(it.t,d,it.sk),doc:docOf(it.t)});
     });
   }
   return out;
@@ -1343,7 +1407,8 @@ function reportFilter(rows){
   var q=rp.q.toLowerCase();
   return rows.filter(function(r){
     if(rp.status==='done'&&r.status!=='done')return false;
-    if(rp.status==='pending'&&r.status==='done')return false;
+    if(rp.status==='pending'&&(r.status==='done'||r.status==='skip'||r.status==='cancel'||r.status==='post'))return false;
+    if(rp.status==='closed'&&!(r.status==='skip'||r.status==='cancel'||r.status==='post'))return false;
     if(rp.status==='late'&&r.status!=='late')return false;
     if(rp.hall&&r.hall!==rp.hall)return false;
     if(rp.machine&&r.t.machine!==rp.machine)return false;
@@ -1379,7 +1444,7 @@ function machinePanel(all){
   h+='<h3>آخرین کارهای انجام‌شده</h3>';
   if(!dn.length)h+='<small class="muted">در این ماه کاری برای این دستگاه ثبت نشده است. ماه قبل را ببینید.</small>';
   dn.forEach(function(r){h+='<div class="rrow"><span class="chip st-done">انجام‌شده</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+dayJ(r.j)+' · '+esc(r.by||'—')+(r.at?' · '+timeFa(r.at):'')+'</small>'+(r.note?'<small class="t-desc">'+esc(r.note)+'</small>':'')+'</div></div>'});
-  if(late.length){h+='<h3>عقب‌افتاده ('+fa(late.length)+')</h3>';late.slice(0,6).forEach(function(r){h+='<div class="rrow"><span class="chip st-late">عقب</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+dayJ(r.j)+'</small></div></div>'})}
+  if(late.length){h+='<h3>عقب‌افتاده ('+fa(late.length)+')</h3>';late.slice(0,6).forEach(function(r){h+='<div class="rrow"><span class="chip st-late">عقب</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+dayJ(r.j)+'</small></div><div class="rnote">'+resUi(r.t,r.j,r.sk,false)+'</div></div>'})}
   if(m.roll){var rs=recsOf(m.id).slice(0,3);h+='<h3>آخرین تعویض‌های غلتک</h3>'+(rs.length?rs.map(function(r){return '<div class="rollbox">'+rsumHtml(r,m)+'</div>'}).join(''):'<small class="muted">هنوز ثبت نشده است.</small>')}
   return h+'</section>';
 }
@@ -1390,14 +1455,14 @@ function viewReport(){
   var h='<section class="card stack"><div class="row between"><h2>گزارش '+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row"><button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">این ماه</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
   h=machineTiles(all)+machinePanel(all)+h;
   h+='<div class="filters">'+
-    '<div class="field"><label for="rp-status">وضعیت</label><select id="rp-status" data-act="rpf" data-k="status">'+[['all','همه'],['done','انجام‌شده'],['pending','انجام‌نشده'],['late','عقب‌افتاده']].map(function(o){return opt(o[0],o[1],rp.status===o[0])}).join('')+'</select></div>'+
+    '<div class="field"><label for="rp-status">وضعیت</label><select id="rp-status" data-act="rpf" data-k="status">'+[['all','همه'],['done','انجام‌شده'],['pending','انجام‌نشده'],['late','عقب‌افتاده'],['closed','تعویق / لغو / غیرقابل‌انجام']].map(function(o){return opt(o[0],o[1],rp.status===o[0])}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-hall">سالن</label><select id="rp-hall" data-act="rpf" data-k="hall">'+opt('','همه',!rp.hall)+allHalls().concat(cfg.machines.some(function(m){return !m.hall})?['بدون سالن']:[]).map(function(x){return opt(x,x,rp.hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-machine">دستگاه</label><select id="rp-machine" data-act="rpf" data-k="machine">'+opt('','همه',!rp.machine)+cfg.machines.filter(function(m){return !rp.hall||(m.hall||'بدون سالن')===rp.hall}).map(function(m){return opt(m.id,m.name,rp.machine===m.id)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-type">نوع</label><select id="rp-type" data-act="rpf" data-k="type">'+opt('','همه',!rp.type)+cfg.lists.types.map(function(x){return opt(x,x,rp.type===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-shift">شیفت</label><select id="rp-shift" data-act="rpf" data-k="shift">'+[['','همه'],['D','روز'],['N','شب'],['none','بدون شیفت']].map(function(o){return opt(o[0],o[1],rp.shift===o[0])}).join('')+'</select></div>'+
     '<div class="field grow"><label for="rp-q">جستجو (کار، دستگاه، انجام‌دهنده، توضیحات)</label><input id="rp-q" type="search" data-act="rpf" data-k="q" value="'+esc(rp.q)+'" autocomplete="off"></div></div>';
   h+='<div class="row"><button class="btn" data-act="rpreset">پاک‌کردن فیلترها</button><button class="btn" data-act="rpexport"'+(fl.length?'':' disabled')+'>دریافت فایل اکسل (CSV)</button><button class="btn" data-act="rpprint">چاپ</button></div></section>';
-  h+='<div class="kpis">'+kpi('کل موارد',fa(fl.length),'','')+kpi('انجام‌شده',fa(dn),'<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div><small>'+fa(pct)+'٪ از موارد سررسیده</small>','ok')+kpi('عقب‌افتاده',fa(lt),'<small>'+(lt?'نیازمند پیگیری':'چیزی عقب نیست')+'</small>',lt?'crit':'')+kpi('انجام‌نشده',fa(fl.length-dn),'','')+'</div>';
+  h+='<div class="kpis">'+kpi('کل موارد',fa(fl.length),'','')+kpi('انجام‌شده',fa(dn),'<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div><small>'+fa(pct)+'٪ از موارد سررسیده</small>','ok')+kpi('عقب‌افتاده','<a class="kbig" href="#report" data-act="gorep" data-st="late">'+fa(lt)+'</a>','<small>'+(lt?'نیازمند پیگیری':'چیزی عقب نیست')+'</small>',lt?'crit':'')+kpi('انجام‌نشده',fa(fl.filter(function(r){return r.status==='late'||r.status==='today'||r.status==='future'}).length),'','')+'</div>';
   var byH={},byP={};
   fl.forEach(function(r){var o=byH[r.hall]=byH[r.hall]||{n:0,d:0};o.n++;if(r.status==='done'){o.d++;var p=r.by||'نامشخص';byP[p]=(byP[p]||0)+1}});
   var hk=Object.keys(byH),pk=Object.keys(byP).sort(function(a,b){return byP[b]-byP[a]}).slice(0,8);
@@ -1410,7 +1475,7 @@ function viewReport(){
   var last=-1;
   fl.slice(0,rp.limit).forEach(function(r){
     if(r.j!==last){last=r.j;h+='<h3 class="rday">'+dayJ(r.j)+(r.j===todayJ?' <small>(امروز)</small>':'')+'</h3>'}
-    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):'')+'</small></div>'+(r.status==='done'?'<div class="rnote">'+noteBox(r.key,r.doc,r.dv)+'</div>':'')+'</div>';
+    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):(r.status==='post'&&r.dv&&r.dv.to?'تا '+fa(dstr(r.dv.to)):''))+'</small></div>'+(r.status==='done'?'<div class="rnote">'+noteBox(r.key,r.doc,r.dv)+'</div>':(r.status!=='future'?'<div class="rnote">'+resUi(r.t,r.j,r.sk,false)+(r.dv?noteBox(r.key,r.doc,r.dv):'')+'</div>':''))+'</div>';
   });
   if(fl.length>rp.limit)h+='<button class="btn" data-act="rpmore">نمایش بیشتر ('+fa(fl.length-rp.limit)+' مورد دیگر)</button>';
   return h+'</section>';
@@ -1488,7 +1553,7 @@ function syncFreq(p){
 function markDirty(e){
   var t=e.target;if(!t||!t.closest)return;
   if(t.id==='rl-dia'||t.id==='rl-bb')updateShim();
-  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le|note|rl)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
+  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le|note|rl|rs)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
 }
 app.addEventListener('input',markDirty);
 app.addEventListener('change',markDirty);
@@ -1548,6 +1613,10 @@ app.addEventListener('click',function(e){
   if(act==='pick'){selJ=+b.dataset.j;render(true);return}
   if(act==='tfilter'){todayFilter=b.dataset.t;render(true);return}
   if(act==='gorep'){e.preventDefault();rp.status=b.dataset.st||'all';rp.limit=40;if(location.hash==='#report')render(true);else location.hash='#report';return}
+  if(act==='resopen'){resEdit=b.dataset.rid;formDirty=true;formAt=Date.now();render(true);var n0=document.getElementById('rs-note');if(n0)n0.focus();return}
+  if(act==='rescancel'){resEdit=null;render(true);return}
+  if(act==='resset'){setRes(b);return}
+  if(act==='resundo'){var s1=stateFor(b.dataset.doc);delete s1.done[b.dataset.key];patchMonth({},['d:'+b.dataset.key],b.dataset.doc);render(true);return}
   if(act==='rpm'){rp.machine=(rp.machine===b.dataset.id)?'':b.dataset.id;rp.hall='';rp.limit=40;render(true);return}
   if(act==='rpmore'){rp.limit+=40;render(true);return}
   if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};render(true);return}
@@ -1649,7 +1718,7 @@ app.addEventListener('change',function(e){
     var tm=document.getElementById(el.id.slice(0,2)+'-team');if(tm)tm.disabled=el.value==='day';return;
   }
   if(act==='msform'){
-    var d1=el.closest('details'),v1=msChecked(d1);d1.querySelector('.ms-t').textContent=v1.length?v1.join('، '):MS_PH;return;
+    var d1=el.closest('details'),v1=msChecked(d1);d1.querySelector('.ms-t').textContent=v1.length?v1.join('، '):(d1.dataset.ph||MS_PH);return;
   }
   if(!canWrite){if(el.type==='checkbox')el.checked=!el.checked;return}
   if(act==='tick'){
@@ -1719,7 +1788,7 @@ app.addEventListener('keydown',function(e){
 
 /* ---------- مسیریابی ---------- */
 function route(){
-  noteEdit=null;rollEdit=null;
+  noteEdit=null;rollEdit=null;resEdit=null;
   var h=(location.hash||'').replace('#','');
   var map={today:'home',month:'home',pm:'manage',staff:'settings',shifts:'settings'};
   if(h==='month'||h==='today')homeTab=h;

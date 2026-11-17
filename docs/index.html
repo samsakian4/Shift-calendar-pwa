@@ -291,13 +291,33 @@ details.addbox[open]>summary{margin-bottom:10px}
 @media (pointer:coarse){.linkbtn{min-height:36px}}
 .rnote{grid-column:1/-1}
 .rnote .t-note{margin-top:0}
+
+/* roll + machine tiles */
+.rollbox,.rollform,.shimbox{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.rk{font-size:13px;color:var(--accent)}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.rc{display:flex;flex-direction:column;background:var(--surface);border-radius:8px;padding:6px 8px;min-width:0}
+.rc small{color:var(--ink2)}.rc b{overflow-wrap:anywhere}
+.rwarn{color:var(--warn);font-size:14px}
+.shimbox b{font-size:22px;color:var(--accent)}
+.hint{font-size:13px;color:var(--ink2);margin:0}
+.rollform .row{display:flex;flex-wrap:wrap;gap:8px}
+.rollform .field{flex:1 1 120px;min-width:0}
+.rtab{min-width:720px}
+.scroll{overflow-x:auto}
+.mtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.mtile{min-height:44px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;font:inherit;cursor:pointer;text-align:center}
+.mtile svg{color:var(--accent)}
+.mtile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.mtile.bad{border-color:var(--crit)}
+.mtile small{color:var(--ink2)}
 </style>
 </head>
 <body>
 <div class="wrap" lang="fa" dir="rtl">
   <header class="top">
     <div class="brand">تقویم شیفت و PM</div>
-    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><a class="btn sm" id="homeBtn" href="#home" hidden>خانه</a><a class="btn sm" id="reportBtn" href="#report" hidden>گزارش</a><a class="btn sm" id="manageBtn" href="#manage" hidden>مدیریت</a><a class="btn sm" id="settingsBtn" href="#settings" hidden>تنظیمات</a><button class="btn sm" id="signout" hidden>خروج</button></div>
+    <div class="top-actions"><span id="status" class="status">در حال بارگذاری…</span><a class="btn sm" id="homeBtn" href="#home" hidden>خانه</a><a class="btn sm" id="reportBtn" href="#report" hidden>گزارش</a><a class="btn sm" id="rollsBtn" href="#rolls" hidden>غلتک</a><a class="btn sm" id="manageBtn" href="#manage" hidden>مدیریت</a><a class="btn sm" id="settingsBtn" href="#settings" hidden>تنظیمات</a><button class="btn sm" id="signout" hidden>خروج</button></div>
   </header>
   
   <main id="app" class="stack"></main>
@@ -368,7 +388,7 @@ var EVERY=[[1,'هر ماه'],[2,'هر ۲ ماه'],[3,'هر ۳ ماه'],[4,'هر 
 var STABS=[['staff','پرسنل'],['roles','سمت‌ها'],['machines','دستگاه‌ها'],['lists','نوع کار و سالن'],['shifts','چرخه شیفت']];
 var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت شب'],['both','هر شیفت (جدا برای روز و شب)']];
 var SHTXT={any:'',D:'شیفت روز',N:'شیفت شب',both:'هر شیفت'};
-var VIEWS_ORDER=['home','report','manage','settings'];
+var VIEWS_ORDER=['home','report','rolls','manage','settings'];
 var OLD_TYPES={pm:'PM',check:'کنترل',maint:'نگهداری'};
 var MS_PH='انتخاب سمت (اختیاری)';
 
@@ -408,6 +428,7 @@ function normalize(d){
   o.machines=o.machines.map(function(m){
     m=Object.assign({},m);
     if(!m.hall||m.hall==='بدون سالن')m.hall='';
+    m.roll=!!m.roll;if(!(+m.refBack>0))m.refBack=550;if(!(+m.refWork>0))m.refWork=230;
     return m;
   });
   o.tasks=o.tasks.map(function(t){
@@ -416,6 +437,7 @@ function normalize(d){
     if(!t.shift)t.shift='any';
     if(t.desc==null)t.desc='';
     if(t.freq==='monthly'&&!(+t.every>0))t.every=1;
+    if(t.kind!=='work'&&t.kind!=='backup')t.kind='';
     return t;
   });
   return o;
@@ -425,7 +447,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -456,7 +478,7 @@ function staffDay(j){
 }
 function dj(o){if(!o||!o.y)return null;try{return j2d(+o.y,+o.m,+o.d)}catch(e){return null}}
 function curDoc(){return monthId(cur.jy,cur.jm)}
-function stateFor(id){if(id===curDoc())return monthState;return extra[id]||(extra[id]={done:{},ovr:{}})}
+function stateFor(id){if(id===curDoc())return monthState;return extra[id]||(extra[id]={done:{},ovr:{},x:{}})}
 function docOf(t){
   if(t.freq==='once'&&t.date&&t.date.y)return monthId(+t.date.y,+t.date.m);
   if(t.freq==='range'&&t.from&&t.from.y)return monthId(+t.from.y,+t.from.m);
@@ -543,20 +565,23 @@ function isNetErr(e){return !!e&&(!e.code||e.code==='PGRST301'||e.code==='PGRST3
 function userName(){return session&&session.user&&session.user.email?session.user.email.split('@')[0]:''}
 
 function toMonthState(d){
-  var s={done:{},ovr:{}};
+  var s={done:{},ovr:{},x:{}};
   Object.keys(d||{}).forEach(function(k){
-    if(k.indexOf('d:')===0)s.done[k.slice(2)]=d[k];
+    if(k.indexOf('x:')===0)s.x[k.slice(2)]=d[k];
+    else if(k.indexOf('d:')===0)s.done[k.slice(2)]=d[k];
     else if(k.indexOf('o:')===0)s.ovr[k.slice(2)]=d[k];
   });
   return s;
 }
 function applyOp(st,op){
   Object.keys(op.set||{}).forEach(function(k){
-    if(k.indexOf('d:')===0)st.done[k.slice(2)]=op.set[k];
+    if(k.indexOf('x:')===0)(st.x=st.x||{})[k.slice(2)]=op.set[k];
+    else if(k.indexOf('d:')===0)st.done[k.slice(2)]=op.set[k];
     else if(k.indexOf('o:')===0)st.ovr[k.slice(2)]=op.set[k];
   });
   (op.del||[]).forEach(function(k){
-    if(k.indexOf('d:')===0)delete st.done[k.slice(2)];
+    if(k.indexOf('x:')===0){if(st.x)delete st.x[k.slice(2)]}
+    else if(k.indexOf('d:')===0)delete st.done[k.slice(2)];
     else if(k.indexOf('o:')===0)delete st.ovr[k.slice(2)];
   });
 }
@@ -639,7 +664,8 @@ function loadMonth(){
 function neededDocs(){
   var s={},c=curDoc();
   cfg.tasks.forEach(function(t){if(t.freq==='once'||t.freq==='range'){var id=docOf(t);if(id!==c)s[id]=1}});
-  return Object.keys(s).slice(0,24);
+  rollMachines().forEach(function(m){rollYears().forEach(function(y){s[rollDocId(m.id,y)]=1})});
+  return Object.keys(s).slice(0,80);
 }
 function loadExtra(){
   return Promise.all(neededDocs().map(function(id){
@@ -765,6 +791,137 @@ function peopleHtml(rows){
     return h+'</div>';
   }).join('');
 }
+/* ---------- تعویض غلتک ---------- */
+function num(v){
+  v=String(v==null?'':v).trim();if(!v)return null;
+  v=v.replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)}).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d)}).replace(/[٫,،]/g,'.').replace(/٬/g,'');
+  var n=parseFloat(v);return isFinite(n)?n:null;
+}
+function numOrText(v){v=String(v==null?'':v).trim();if(!v)return '';var n=num(v);return (n!==null&&/^[\d۰-۹٠-٩.,٫،\s-]+$/.test(v))?n:v}
+function fnum(n){if(n===null||n===undefined||n===''||!isFinite(n))return '—';return fa(String(Math.round(n*1000)/1000)).replace('.','٫')}
+function lnum(n){return(n===null||n===undefined||n===''||!isFinite(n))?'':String(Math.round(n*1000)/1000)}
+function dstr(o){return o&&o.y?o.y+'/'+pad(o.m)+'/'+pad(o.d):''}
+function rollMachines(){return cfg.machines.filter(function(m){return m.roll})}
+function rollYears(){return [tj.jy,tj.jy-1]}
+function rollDocId(mid,jy){return 'r-'+mid+'-'+jy}
+function recsOf(mid){
+  var out=[];
+  rollYears().forEach(function(y){
+    var st=extra[rollDocId(mid,y)];if(!st||!st.x)return;
+    Object.keys(st.x).forEach(function(k){var r=st.x[k];if(r&&typeof r==='object')out.push(Object.assign({id:k,docY:y},r))});
+  });
+  out.sort(function(a,b){return((dj(b.date)||0)-(dj(a.date)||0))||String(b.at||'').localeCompare(String(a.at||''))});
+  return out;
+}
+/* آخرین قطر بک‌آپ بالا و پایین تا یک تاریخ: از آخرین رکوردِ آن دستگاه که قطر بک‌آپ دارد */
+function backupAt(mid,j,exceptId){
+  var rs=recsOf(mid);
+  for(var i=0;i<rs.length;i++){
+    var r=rs[i];if(r.id===exceptId)continue;
+    if((dj(r.date)||0)<=j&&typeof r.bt==='number'&&typeof r.bb==='number')return r;
+  }
+  return null;
+}
+function shimSug(m,dia,bb){
+  if(dia===null||bb===null||dia===undefined||bb===undefined)return null;
+  var rb=+m.refBack||550,rw=+m.refWork||230;
+  return Math.round(((rb-bb)/2+(rw-dia))*1000)/1000;
+}
+function recKey(t,sk){return t.id+(sk?'_'+sk:'')}
+function recFor(t,sk){
+  var k=recKey(t,sk),rs=recsOf(t.machine);
+  for(var i=0;i<rs.length;i++)if(rs[i].id===k)return rs[i];
+  return null;
+}
+var KINDL={work:'تعویض ورک رول',backup:'تعویض ورک رول و بک‌آپ رول'};
+function rsumHtml(r,m){
+  function c(l,v){return '<span class="rc"><small>'+l+'</small><b>'+v+'</b></span>'}
+  return '<div class="rgrid">'+c('تاریخ',fa(dstr(r.date)))+c('شماره غلتک',esc(r.no||'—'))+c('قطر',fnum(r.dia))+c('رافنس',esc(r.rough===''||r.rough==null?'—':fnum(r.rough)===('—')?r.rough:(typeof r.rough==='number'?fnum(r.rough):esc(r.rough))))+c('کرون',esc(r.crown===''||r.crown==null?'—':(typeof r.crown==='number'?fnum(r.crown):esc(r.crown))))+
+    c('شیم پیشنهادی',fnum(r.shimSug))+c('شیم اجرا‌شده',fnum(r.shim))+c('بک‌آپ بالا',fnum(r.bt))+c('بک‌آپ پایین',fnum(r.bb))+'</div>';
+}
+function rollPanel(it,j){
+  var t=it.t;if(!t.kind)return '';
+  var sk=it.sk||'';
+  if(rollEdit&&rollEdit.tid===t.id&&rollEdit.sk===sk)return rollForm(it,j);
+  var r=recFor(t,sk),a=' data-tid="'+esc(t.id)+'" data-sk="'+esc(sk)+'" data-j="'+j+'"';
+  var h='<div class="rollbox"><b class="rk">'+KINDL[t.kind]+'</b>';
+  h+=r?rsumHtml(r):'<div class="rwarn">اطلاعات غلتک هنوز ثبت نشده است.</div>';
+  if(canWrite)h+='<button class="btn sm" data-act="rollopen"'+a+'>'+(r?'ویرایش اطلاعات غلتک':'ثبت اطلاعات و شیم پیشنهادی')+'</button>';
+  return h+'</div>';
+}
+function rfld(id,label,v,ph){return '<div class="field"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="text" inputmode="decimal" autocomplete="off" value="'+esc(v==null?'':v)+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+'></div>'}
+function rollForm(it,j){
+  var t=it.t,sk=it.sk||'',m=machineOf(t.machine)||{},isB=t.kind==='backup',r=recFor(t,sk);
+  var xj=d2j(Math.min(j,todayJ)),dd=r?r.date:{y:xj.jy,m:xj.jm,d:xj.jd},jd=dj(dd),kn=backupAt(t.machine,jd,r&&r.id);
+  var bt=r&&typeof r.bt==='number'?r.bt:(kn?kn.bt:null),bb=r&&typeof r.bb==='number'?r.bb:(kn?kn.bb:null);
+  var h='<div class="rollform stack"><b class="rk">'+KINDL[t.kind]+' · '+esc(m.name||'')+'</b>';
+  h+='<div class="row">'+dateFields('rl','dt',dd)+'</div>';
+  h+='<div class="row">'+rfld('rl-no','شماره غلتک ورک رول',r?r.no:'')+rfld('rl-dia','قطر ورک رول (mm)',r?lnum(r.dia):'')+rfld('rl-rough','رافنس',r?(r.rough===''?'':r.rough):'')+rfld('rl-crown','کرون',r?(r.crown===''?'':r.crown):'')+'</div>';
+  if(!isB&&kn){
+    h+='<p class="hint">قطر بک‌آپ از آخرین تعویض بک‌آپ ('+fa(dstr(kn.date))+') خودکار آمده است: بالا '+fnum(kn.bt)+' · پایین '+fnum(kn.bb)+'<input id="rl-bt" type="hidden" value="'+lnum(bt)+'"><input id="rl-bb" type="hidden" value="'+lnum(bb)+'"></p>';
+  }else{
+    h+='<div class="row">'+rfld('rl-bt','قطر بک‌آپ رول بالا (mm)',lnum(bt))+rfld('rl-bb','قطر بک‌آپ رول پایین (mm)',lnum(bb))+'</div>';
+    if(!isB)h+='<p class="hint">هنوز قطر بک‌آپ این دستگاه ثبت نشده است. یک‌بار وارد کنید؛ برای تعویض‌های بعدی خودکار می‌آید.</p>';
+  }
+  h+='<div class="shimbox"><small>شیم پیشنهادی</small><b id="rl-sug">—</b><small id="rl-formula" dir="ltr"></small></div>';
+  h+='<div class="row">'+rfld('rl-shim','شیم اجرا‌شده (mm) — بعد از انجام پر شود',r?lnum(r.shim):'')+'</div>';
+  h+='<div class="row"><button class="btn pri" data-act="rollsave">ذخیره‌ی اطلاعات</button><button class="btn" data-act="rollcancel">انصراف</button></div></div>';
+  return h;
+}
+function updateShim(){
+  var el=document.getElementById('rl-sug');if(!el||!rollEdit)return;
+  var m=machineOf(rollEdit.mid)||{},dia=num(val('rl-dia')),bb=num(val('rl-bb')),f=document.getElementById('rl-formula');
+  var rb=+m.refBack||550,rw=+m.refWork||230,sg=shimSug(m,dia,bb);
+  el.textContent=sg===null?'—':fnum(sg)+' mm';
+  if(f)f.textContent=sg===null?'(('+rb+' − back-up bottom Ø) / 2) + ('+rw+' − work roll Ø)':'(('+rb+' − '+lnum(bb)+') / 2) + ('+rw+' − '+lnum(dia)+') = '+lnum(sg);
+}
+function saveRoll(){
+  var re=rollEdit;if(!re)return;
+  var t=cfg.tasks.find(function(q){return q.id===re.tid});if(!t)return;
+  var m=machineOf(t.machine);if(!m)return;
+  var dt=readDate('rl','dt');if(!dt){notify('تاریخ تعویض درست نیست.',true);return}
+  var dia=num(val('rl-dia')),bt=num(val('rl-bt')),bb=num(val('rl-bb')),no=val('rl-no');
+  if(!no&&dia===null){notify('حداقل شماره یا قطر غلتک را وارد کنید.',true);return}
+  if(t.kind==='backup'&&(bt===null||bb===null)){notify('برای تعویض بک‌آپ، قطر بک‌آپ بالا و پایین را وارد کنید.',true);return}
+  var old=recFor(t,re.sk),key=recKey(t,re.sk);
+  var rec={k:t.kind,task:t.id,sk:re.sk,date:dt,no:no,dia:dia,rough:numOrText(val('rl-rough')),crown:numOrText(val('rl-crown')),bt:bt,bb:bb,shimSug:shimSug(m,dia,bb),shim:num(val('rl-shim')),by:old?old.by:userName(),at:old?old.at:new Date().toISOString()};
+  Object.keys(rec).forEach(function(k){if(rec[k]===null)delete rec[k]});
+  var nd=rollDocId(m.id,dt.y),st=stateFor(nd);st.x=st.x||{};st.x[key]=rec;
+  var set={};set['x:'+key]=rec;
+  patchMonth(set,[],nd);
+  if(old&&old.docY!==dt.y){var od=rollDocId(m.id,old.docY),os=stateFor(od);if(os.x)delete os.x[key];patchMonth({},['x:'+key],od)}
+  rollEdit=null;render(true);notify('اطلاعات تعویض غلتک ثبت شد.');
+}
+function viewRolls(){
+  var ms=rollMachines();
+  if(!ms.length)return '<div class="empty">هنوز دستگاهی «غلتک‌دار» نیست. در تنظیمات، تب دستگاه‌ها، دستگاه را ویرایش و گزینه‌ی غلتک‌دار را بزنید.</div>';
+  var list=rl.mid?ms.filter(function(m){return m.id===rl.mid}):ms;
+  var h='<section class="card stack"><h2>سابقه‌ی تعویض غلتک</h2><div class="filters"><div class="field"><label for="rl-mid">دستگاه</label><select id="rl-mid" data-act="rlm">'+opt('','همه‌ی دستگاه‌های غلتک‌دار',!rl.mid)+ms.map(function(m){return opt(m.id,m.name,rl.mid===m.id)}).join('')+'</select></div></div><div class="row"><button class="btn" data-act="rollexport">دریافت فایل اکسل (CSV)</button></div></section>';
+  list.forEach(function(m){
+    var rs=recsOf(m.id),b=backupAt(m.id,todayJ);
+    h+='<section class="card stack"><div class="row between"><h2>'+esc(m.name)+' <small>'+esc(m.hall||'')+'</small></h2><small>'+fa(rs.length)+' سابقه</small></div>';
+    h+='<div class="shimbox">'+(b?'<small>قطر بک‌آپ فعلی (از '+fa(dstr(b.date))+')</small><b>بالا '+fnum(b.bt)+' · پایین '+fnum(b.bb)+'</b>':'<small>قطر بک‌آپ هنوز ثبت نشده است.</small>')+'<small>فرمول شیم: (('+(+m.refBack||550)+' − قطر بک‌آپ پایین) ÷ ۲) + ('+(+m.refWork||230)+' − قطر ورک رول)</small></div>';
+    if(!rs.length)h+='<div class="empty">هنوز تعویضی ثبت نشده است.</div>';
+    else{
+      h+='<div class="scroll"><table class="prev rtab"><thead><tr><th>تاریخ</th><th>نوع</th><th>شماره غلتک</th><th>قطر</th><th>رافنس</th><th>کرون</th><th>شیم پیشنهادی</th><th>شیم اجرا</th><th>بک‌آپ بالا</th><th>بک‌آپ پایین</th><th>ثبت‌کننده</th></tr></thead><tbody>';
+      rs.forEach(function(r){
+        h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+(r.k==='backup'?'ورک + بک‌آپ':'ورک رول')+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</section>';
+  });
+  return h;
+}
+function exportRolls(){
+  var q=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  var out=[['دستگاه','تاریخ','نوع','شماره غلتک','قطر','رافنس','کرون','شیم پیشنهادی','شیم اجرا','بک‌آپ بالا','بک‌آپ پایین','ثبت‌کننده']];
+  var ms=rl.mid?rollMachines().filter(function(m){return m.id===rl.mid}):rollMachines();
+  ms.forEach(function(m){recsOf(m.id).forEach(function(r){out.push([m.name,dstr(r.date),r.k==='backup'?'ورک + بک‌آپ':'ورک رول',r.no||'',lnum(r.dia),r.rough,r.crown,lnum(r.shimSug),lnum(r.shim),lnum(r.bt),lnum(r.bb),r.by||''])})});
+  var csv='\ufeff'+out.map(function(r){return r.map(q).join(',')}).join('\r\n');
+  try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='rolls-'+tj.jy+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}catch(e){notify('دریافت فایل ممکن نشد.',true)}
+}
+
 /* توضیحات انجام کار: هر تیکِ انجام‌شده می‌تواند یادداشت داشته باشد */
 function noteOf(dv){return(dv&&typeof dv==='object'&&dv.note)||''}
 function noteBox(k,doc,dv){
@@ -778,10 +935,10 @@ function noteBox(k,doc,dv){
 function taskRow(it,j,showMachine,showSk){
   var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=doneVal(t,x.jd,it.sk),done=!!dv,m=machineOf(t.machine);
   var by=(dv&&typeof dv==='object')?(' · '+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')):'';
-  return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
+  return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1"'+(t.kind?' data-tid="'+esc(t.id)+'" data-sk="'+esc(it.sk||'')+'"':'')+' data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
     '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
     (it.rng?'<small class="t-rng">یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+'</small>':'')+(t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
-    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+noteBox(k,docOf(t),dv)+'</div>';
+    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+rollPanel(it,j)+noteBox(k,docOf(t),dv)+'</div>';
 }
 function instGroups(list,j,showSk){
   if(!list.length)return '';
@@ -995,6 +1152,7 @@ function taskFormHtml(p,t){
     '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
     '<div class="row">'+
     '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t&&t.type===x)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-kind">کار ویژه</label><select id="'+p+'-kind">'+opt('','عادی',!(t&&t.kind))+opt('work','تعویض ورک رول',t&&t.kind==='work')+opt('backup','تعویض ورک رول و بک‌آپ رول',t&&t.kind==='backup')+'</select></div>'+
     '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+SHOPT.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
     '<div class="row" id="'+p+'-g-wd"><div class="field"><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div></div>'+
@@ -1011,10 +1169,17 @@ function machineOptions(hall,sel){
   return list.map(function(m){return opt(m.id,m.name,m.id===sel)}).join('');
 }
 function readTask(p){
-  var mid=val(p+'-machine'),title=val(p+'-title');
+  var mid=val(p+'-machine'),title=val(p+'-title'),kind=val(p+'-kind');
+  if(kind&&!title)title=KINDL[kind];
   if(!mid){notify('اول سالن و دستگاه را انتخاب کنید. دستگاه‌ها را در «تنظیمات» تعریف کنید.',true);return null}
   if(!title){notify('عنوان کار را بنویسید.',true);return null}
-  var f=val(p+'-freq'),o={machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
+  var f=val(p+'-freq');
+  if(kind){
+    var mm=machineOf(mid);
+    if(!mm||!mm.roll){notify('این دستگاه «غلتک‌دار» علامت نخورده است. در تنظیمات، تب دستگاه‌ها، آن را ویرایش کنید.',true);return null}
+    if(f!=='once'&&f!=='range'){notify('تعویض غلتک باید «یک روز مشخص» یا «یک‌بار در یک بازه» باشد.',true);return null}
+  }
+  var o={kind:kind,machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
   if(f==='weekly')o.weekday=+val(p+'-wd')||0;
   if(f==='monthly'){o.monthDay=Math.max(1,Math.min(31,+val(p+'-md')||1));o.every=+val(p+'-ev')||1}
   if(f==='daily'||f==='weekly'||f==='monthly'){o.start=readDate(p,'st');if(!o.start){notify('تاریخ شروع درست نیست.',true);return null}}
@@ -1032,7 +1197,7 @@ function oneDone(t){
 }
 function taskItem(t){
   if(isEdit('task',t.id))return '<div class="card flat stack"><h3>ویرایش کار</h3>'+taskFormHtml('et',t)+'<div class="row"><button class="btn pri" data-act="savetask" data-id="'+esc(t.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
-  return '<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span><span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
+  return '<div class="list-row"><span class="grow"><b>'+esc(t.title)+'</b> <small>'+esc(freqText(t))+'</small>'+(t.desc?'<br><small class="t-desc">'+esc(t.desc)+'</small>':'')+'</span>'+(t.kind?'<span class="chip sh-N">'+KINDL[t.kind]+'</span>':'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span>'+((t.freq==='once'||t.freq==='range')&&oneDone(t)?'<span class="chip sh-W">انجام شد</span>':'')+editBtns('task',t.id)+'</div>';
 }
 function viewPM(){
   var h='';
@@ -1110,7 +1275,10 @@ var LISTS_META=[
 function machineFormHtml(p,m){
   var halls=allHalls();
   return '<div class="row"><div class="field"><label for="'+p+'-name">نام دستگاه</label><input id="'+p+'-name" autocomplete="off" value="'+esc(m?m.name:'')+'"></div>'+
-    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',m?!m.hall:!lastMHall)+halls.map(function(x){return opt(x,x,m?m.hall===x:lastMHall===x)}).join('')+'</select></div></div>';
+    '<div class="field"><label for="'+p+'-hall">سالن</label><select id="'+p+'-hall">'+opt('','بدون سالن',m?!m.hall:!lastMHall)+halls.map(function(x){return opt(x,x,m?m.hall===x:lastMHall===x)}).join('')+'</select></div></div>'+
+    '<div class="row"><div class="field"><label class="chk"><input type="checkbox" id="'+p+'-roll"'+(m&&m.roll?' checked':'')+'> غلتک‌دار (ثبت اطلاعات تعویض غلتک)</label></div>'+
+    '<div class="field"><label for="'+p+'-rb">مبنای بک‌آپ در فرمول شیم</label><input id="'+p+'-rb" inputmode="decimal" value="'+((m&&+m.refBack)||550)+'" style="width:90px"></div>'+
+    '<div class="field"><label for="'+p+'-rw">مبنای ورک رول در فرمول شیم</label><input id="'+p+'-rw" inputmode="decimal" value="'+((m&&+m.refWork)||230)+'" style="width:90px"></div></div>';
 }
 function listCard(m){
   var arr=cfg.lists[m.k]||[];
@@ -1126,7 +1294,7 @@ function listCard(m){
 function machineRow(m){
   if(isEdit('machine',m.id))return '<div class="card flat stack">'+machineFormHtml('em',m)+'<div class="row"><button class="btn pri" data-act="savemachine" data-id="'+esc(m.id)+'">ذخیره</button><button class="btn" data-act="editcancel">انصراف</button></div></div>';
   var n=cfg.tasks.filter(function(t){return t.machine===m.id}).length;
-  return '<div class="srow"><span class="grow"><b>'+esc(m.name)+'</b> <small>'+fa(n)+' کار</small></span>'+editBtns('machine',m.id)+'</div>';
+  return '<div class="srow"><span class="grow"><b>'+esc(m.name)+'</b> <small>'+fa(n)+' کار</small>'+(m.roll?' <span class="chip sh-N">غلتک‌دار</span>':'')+'</span>'+editBtns('machine',m.id)+'</div>';
 }
 function machinesCard(){
   var h='';
@@ -1191,11 +1359,36 @@ function barRow(label,done,n){
   return '<div class="brow"><div class="row between"><span>'+esc(label)+'</span><small>'+fa(done)+' از '+fa(n)+' · '+fa(p)+'٪</small></div><div class="meter"><i style="width:'+p+'%"></i></div></div>';
 }
 function dayJ(j){var x=d2j(j);return WD[satIdx(j)]+' '+fa(x.jd)+' '+MONTHS[x.jm-1]}
+var MICON='<svg viewBox="0 0 48 32" width="44" height="30" aria-hidden="true"><rect x="3" y="4" width="42" height="5" rx="2.5" fill="currentColor"/><rect x="3" y="23" width="42" height="5" rx="2.5" fill="currentColor"/><rect x="9" y="11" width="30" height="10" rx="2" fill="currentColor" opacity=".35"/></svg>';
+function machineTiles(all){
+  var by={};
+  all.forEach(function(r){var k=r.t.machine,o=by[k]=by[k]||{n:0,d:0,l:0,at:''};o.n++;if(r.status==='done'){o.d++;if(r.at>o.at)o.at=r.at}if(r.status==='late')o.l++});
+  var h='<section class="card stack"><h2>دستگاه‌ها <small>(برای دیدن گزارش هر دستگاه کلیک کنید)</small></h2><div class="mtiles">';
+  cfg.machines.forEach(function(m){
+    var o=by[m.id]||{n:0,d:0,l:0,at:''},on=rp.machine===m.id;
+    h+='<button type="button" class="mtile'+(on?' on':'')+(o.l?' bad':'')+'" data-act="rpm" data-id="'+esc(m.id)+'" aria-pressed="'+on+'">'+MICON+'<b>'+esc(m.name)+'</b><small>'+esc(m.hall||'بدون سالن')+'</small><small>'+fa(o.d)+' از '+fa(o.n)+(o.l?' · '+fa(o.l)+' عقب':'')+'</small></button>';
+  });
+  return h+'</div></section>';
+}
+function machinePanel(all){
+  var m=machineOf(rp.machine);if(!m)return '';
+  var rows=all.filter(function(r){return r.t.machine===m.id});
+  var dn=rows.filter(function(r){return r.status==='done'}).sort(function(a,b){return String(b.at).localeCompare(String(a.at))}).slice(0,8);
+  var late=rows.filter(function(r){return r.status==='late'});
+  var h='<section class="card stack"><div class="row between"><h2>'+esc(m.name)+' <small>'+esc(m.hall||'')+'</small></h2><button class="btn sm" data-act="rpm" data-id="">نمایش همه‌ی دستگاه‌ها</button></div>';
+  h+='<h3>آخرین کارهای انجام‌شده</h3>';
+  if(!dn.length)h+='<small class="muted">در این ماه کاری برای این دستگاه ثبت نشده است. ماه قبل را ببینید.</small>';
+  dn.forEach(function(r){h+='<div class="rrow"><span class="chip st-done">انجام‌شده</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+dayJ(r.j)+' · '+esc(r.by||'—')+(r.at?' · '+timeFa(r.at):'')+'</small>'+(r.note?'<small class="t-desc">'+esc(r.note)+'</small>':'')+'</div></div>'});
+  if(late.length){h+='<h3>عقب‌افتاده ('+fa(late.length)+')</h3>';late.slice(0,6).forEach(function(r){h+='<div class="rrow"><span class="chip st-late">عقب</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+dayJ(r.j)+'</small></div></div>'})}
+  if(m.roll){var rs=recsOf(m.id).slice(0,3);h+='<h3>آخرین تعویض‌های غلتک</h3>'+(rs.length?rs.map(function(r){return '<div class="rollbox">'+rsumHtml(r,m)+'</div>'}).join(''):'<small class="muted">هنوز ثبت نشده است.</small>')}
+  return h+'</section>';
+}
 function viewReport(){
   var all=reportRows(),fl=reportFilter(all);
   var dn=fl.filter(function(r){return r.status==='done'}).length,lt=fl.filter(function(r){return r.status==='late'}).length;
   var sofar=fl.filter(function(r){return r.status==='done'||r.j<=todayJ}).length,pct=sofar?Math.round(dn*100/sofar):0;
   var h='<section class="card stack"><div class="row between"><h2>گزارش '+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row"><button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">این ماه</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
+  h=machineTiles(all)+machinePanel(all)+h;
   h+='<div class="filters">'+
     '<div class="field"><label for="rp-status">وضعیت</label><select id="rp-status" data-act="rpf" data-k="status">'+[['all','همه'],['done','انجام‌شده'],['pending','انجام‌نشده'],['late','عقب‌افتاده']].map(function(o){return opt(o[0],o[1],rp.status===o[0])}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-hall">سالن</label><select id="rp-hall" data-act="rpf" data-k="hall">'+opt('','همه',!rp.hall)+allHalls().concat(cfg.machines.some(function(m){return !m.hall})?['بدون سالن']:[]).map(function(x){return opt(x,x,rp.hall===x)}).join('')+'</select></div>'+
@@ -1243,7 +1436,7 @@ function viewSetup(){
 function viewLogin(){
   return '<form class="card login" id="login-form"><h2>ورود</h2><div class="field"><label for="li-email">ایمیل</label><input id="li-email" type="email" autocomplete="username" dir="ltr"></div><div class="field"><label for="li-pass">رمز عبور</label><input id="li-pass" type="password" autocomplete="current-password" dir="ltr"></div><div class="err" role="alert">'+esc(authErr)+'</div><button class="btn pri" type="submit">ورود</button></form>';
 }
-var VIEWS={home:viewHome,report:viewReport,manage:viewPM,settings:viewSettings};
+var VIEWS={home:viewHome,report:viewReport,rolls:viewRolls,manage:viewPM,settings:viewSettings};
 
 /* ---------- رندر ---------- */
 function editing(){
@@ -1264,7 +1457,7 @@ function renderTop(){
   else{t='همگام'+(lastSync?' · '+timeFa(lastSync):'');c+=' ok'}
   el.textContent=t;el.className=c;
   var out=$('#signout');if(out)out.hidden=!session;
-  [['homeBtn','home',true],['reportBtn','report',true],['manageBtn','manage',canWrite],['settingsBtn','settings',canWrite]].forEach(function(x){
+  [['homeBtn','home',true],['reportBtn','report',true],['rollsBtn','rolls',rollMachines().length>0],['manageBtn','manage',canWrite],['settingsBtn','settings',canWrite]].forEach(function(x){
     var b=$('#'+x[0]);if(!b)return;
     b.hidden=!(session&&x[2]);
     if(view===x[1])b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
@@ -1282,8 +1475,9 @@ function render(force){
   app.innerHTML=(VIEWS[vw]||VIEWS.home)();
   openMs.forEach(function(id){var d=app.querySelector('details.ms[data-ms="'+id+'"]');if(d)d.setAttribute('open','')});
   if(abOpen){var ab2=app.querySelector('details.addbox');if(ab2)ab2.setAttribute('open','')}
-  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&(setTab==='staff'||setTab==='machines')||vw==='manage'||vw==='home');
+  var wr=document.querySelector('.wrap');if(wr)wr.classList.toggle('wide',vw==='settings'&&(setTab==='staff'||setTab==='machines')||vw==='manage'||vw==='home'||vw==='rolls');
   ['nt','et'].forEach(function(p){if($('#'+p+'-freq'))syncFreq(p)});
+  updateShim();
 }
 function syncFreq(p){
   var f=$('#'+p+'-freq').value;
@@ -1293,7 +1487,8 @@ function syncFreq(p){
 /* فرمی که نیمه‌پر است نباید با به‌روزرسانی خودکار (همگام‌سازی) پاک شود */
 function markDirty(e){
   var t=e.target;if(!t||!t.closest)return;
-  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le|note)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
+  if(t.id==='rl-dia'||t.id==='rl-bb')updateShim();
+  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le|note|rl)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
 }
 app.addEventListener('input',markDirty);
 app.addEventListener('change',markDirty);
@@ -1327,11 +1522,16 @@ function saveNote(k,doc){
   st.done[k]=sv;var o={};o['d:'+k]=sv;patchMonth(o,[],doc);
   noteEdit=null;render(true);
 }
+function readMachineRoll(p){
+  var c=document.getElementById(p+'-roll');
+  return{roll:!!(c&&c.checked),refBack:num(val(p+'-rb'))||550,refWork:num(val(p+'-rw'))||230};
+}
 function submitMachine(){
   var mn=val('nm-name');
   if(!mn){notify('نام دستگاه را بنویسید.',true);var n0=document.getElementById('nm-name');if(n0)n0.focus();return}
   var hl=val('nm-hall');lastMHall=hl;
-  var ok=mutate(function(){cfg.machines.push({id:uid(),name:mn,hall:hl})});
+  var rf=readMachineRoll('nm');
+  var ok=mutate(function(){cfg.machines.push(Object.assign({id:uid(),name:mn,hall:hl},rf))});
   if(ok){var nn=document.getElementById('nm-name');if(nn)nn.focus();notify('«'+mn+'» اضافه شد.')}
 }
 function submitStaff(){
@@ -1348,9 +1548,11 @@ app.addEventListener('click',function(e){
   if(act==='pick'){selJ=+b.dataset.j;render(true);return}
   if(act==='tfilter'){todayFilter=b.dataset.t;render(true);return}
   if(act==='gorep'){e.preventDefault();rp.status=b.dataset.st||'all';rp.limit=40;if(location.hash==='#report')render(true);else location.hash='#report';return}
+  if(act==='rpm'){rp.machine=(rp.machine===b.dataset.id)?'':b.dataset.id;rp.hall='';rp.limit=40;render(true);return}
   if(act==='rpmore'){rp.limit+=40;render(true);return}
   if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};render(true);return}
   if(act==='rpexport'){exportCsv();return}
+  if(act==='rollexport'){exportRolls();return}
   if(act==='rpprint'){try{window.print()}catch(e){}return}
   if(act==='htab'){homeTab=b.dataset.t;if(homeTab==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){gotoMonth(tj.jy,tj.jm,todayJ);return}render(true);return}
   if(act==='stab'){setTab=b.dataset.t;edit=null;render(true);return}
@@ -1361,6 +1563,13 @@ app.addEventListener('click',function(e){
   }
   if(act==='mtoday'){gotoMonth(tj.jy,tj.jm,todayJ);return}
   if(!canWrite)return;
+  if(act==='rollopen'){
+    var tt2=cfg.tasks.find(function(q){return q.id===b.dataset.tid});if(!tt2)return;
+    rollEdit={tid:tt2.id,sk:b.dataset.sk||'',mid:tt2.machine,j:+b.dataset.j};formDirty=true;formAt=Date.now();render(true);
+    var f0=document.getElementById('rl-no');if(f0)f0.focus();return;
+  }
+  if(act==='rollcancel'){rollEdit=null;render(true);return}
+  if(act==='rollsave'){saveRoll();return}
   if(act==='noteedit'){noteEdit=b.dataset.key+'|'+b.dataset.doc;formDirty=true;formAt=Date.now();render(true);var ta0=document.getElementById('note-ta');if(ta0){ta0.focus();ta0.setSelectionRange(ta0.value.length,ta0.value.length)}return}
   if(act==='notecancel'){noteEdit=null;render(true);return}
   if(act==='notesave'){saveNote(b.dataset.key,b.dataset.doc);return}
@@ -1397,7 +1606,7 @@ app.addEventListener('click',function(e){
   }
   if(act==='savemachine'){
     var en=val('em-name');if(!en){notify('نام دستگاه را بنویسید.',true);return}
-    mutate(function(){var m=machineOf(b.dataset.id);if(m){m.name=en;m.hall=val('em-hall')}});return;
+    mutate(function(){var m=machineOf(b.dataset.id);if(m){m.name=en;m.hall=val('em-hall');Object.assign(m,readMachineRoll('em'))}});return;
   }
   if(act==='addtask'){
     var tv=readTask('nt');if(!tv)return;
@@ -1426,6 +1635,7 @@ app.addEventListener('click',function(e){
 app.addEventListener('change',function(e){
   var el=e.target,act=el.dataset.act;
   if(!act)return;
+  if(act==='rlm'){rl.mid=el.value;render(true);return}
   if(act==='tff'){tf.q=el.value.trim();render(true);return}
   if(act==='mff'){mf.q=el.value.trim();render(true);return}
   if(act==='sff'){sf[el.dataset.k]=el.value.trim();render(true);return}
@@ -1446,10 +1656,14 @@ app.addEventListener('change',function(e){
     var kk=el.dataset.key,dk='d:'+kk,doc=el.dataset.doc||curDoc(),stt=stateFor(doc);
     if(el.checked){
       var sv={by:userName(),at:new Date().toISOString()};stt.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[],doc);
-      if(el.dataset.note){noteEdit=kk+'|'+doc;formDirty=true;formAt=Date.now()}
+      if(el.dataset.tid&&!recFor(cfg.tasks.find(function(q){return q.id===el.dataset.tid})||{id:'',machine:''},el.dataset.sk||'')){
+        var tt=cfg.tasks.find(function(q){return q.id===el.dataset.tid});
+        if(tt){rollEdit={tid:tt.id,sk:el.dataset.sk||'',mid:tt.machine,j:todayJ};formDirty=true;formAt=Date.now()}
+      }else if(el.dataset.note){noteEdit=kk+'|'+doc;formDirty=true;formAt=Date.now()}
     }else{delete stt.done[kk];patchMonth({},[dk],doc);if(noteEdit===kk+'|'+doc)noteEdit=null}
     render(true);
-    if(noteEdit){var ta=document.getElementById('note-ta');if(ta)ta.focus()}
+    if(rollEdit){var rf=document.getElementById('rl-no');if(rf)rf.focus()}
+    else if(noteEdit){var ta=document.getElementById('note-ta');if(ta)ta.focus()}
     return;
   }
   if(act==='ovr'){
@@ -1489,6 +1703,10 @@ app.addEventListener('keydown',function(e){
     var bt=app.querySelector('[data-act="lstadd"][data-list="'+e.target.id.slice(3)+'"]');
     if(bt)bt.click();
   }
+  if(e.target.id&&/^rl-/.test(e.target.id)){
+    if(e.key==='Escape'){rollEdit=null;render(true)}
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();saveRoll()}
+  }
   if(e.target.id==='note-ta'){
     if(e.key==='Escape'){noteEdit=null;render(true)}
     if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();var sb0=app.querySelector('[data-act=notesave]');if(sb0)saveNote(sb0.dataset.key,sb0.dataset.doc)}
@@ -1501,7 +1719,7 @@ app.addEventListener('keydown',function(e){
 
 /* ---------- مسیریابی ---------- */
 function route(){
-  noteEdit=null;
+  noteEdit=null;rollEdit=null;
   var h=(location.hash||'').replace('#','');
   var map={today:'home',month:'home',pm:'manage',staff:'settings',shifts:'settings'};
   if(h==='month'||h==='today')homeTab=h;

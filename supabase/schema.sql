@@ -4,11 +4,12 @@
 -- مدل داده: دو نوع سند در جدول shift_kv
 --   id = 'config'      → پرسنل، تیم‌ها، دستگاه‌ها، کارهای PM، چرخه شیفت (یک سند JSON)
 --   id = 'm-1405-08'   → وضعیت یک ماه شمسی: کلیدهای تیک (d:...) و تغییر شیفت افراد (o:...)
+--   id = 'r-<دستگاه>-1405' → سابقه‌ی تعویض غلتک یک دستگاه در یک سال (کلیدهای x:...)
 -- دسترسی: همه‌ی کاربران واردشده می‌خوانند؛ فقط کاربران جدول shift_editors می‌نویسند.
 
 create table if not exists public.shift_kv (
   id         text primary key
-             check (id ~ '^(config|m-[0-9]{4}-[0-9]{2})$'),
+             check (id ~ '^(config|m-[0-9]{4}-[0-9]{2}|r-[a-z0-9]{1,12}-[0-9]{4})$'),
   data       jsonb not null default '{}'::jsonb
              check (octet_length(data::text) < 500000),
   updated_at timestamptz not null default now(),

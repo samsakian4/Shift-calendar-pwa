@@ -282,6 +282,15 @@ details.addbox[open]>summary{margin-bottom:10px}
 .hl-t{min-width:104px;font-size:12px;color:var(--ink2);flex:none}
 .hl-n{flex:1;min-width:0}
 .rolegrp>.hline+.hline{margin-top:2px}
+.taskw{border-bottom:1px solid var(--line)}
+.taskw>.task{border-bottom:0}
+.t-note{background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:13px;white-space:pre-wrap;margin:0 0 6px;line-height:1.7}
+.notebox{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px}
+.notebox textarea{min-height:64px}
+.linkbtn{border:0;background:none;color:var(--accent);padding:0 0 6px;min-height:0;text-decoration:underline;cursor:pointer;font-size:13px}
+@media (pointer:coarse){.linkbtn{min-height:36px}}
+.rnote{grid-column:1/-1}
+.rnote .t-note{margin-top:0}
 </style>
 </head>
 <body>
@@ -416,7 +425,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -756,13 +765,23 @@ function peopleHtml(rows){
     return h+'</div>';
   }).join('');
 }
+/* توضیحات انجام کار: هر تیکِ انجام‌شده می‌تواند یادداشت داشته باشد */
+function noteOf(dv){return(dv&&typeof dv==='object'&&dv.note)||''}
+function noteBox(k,doc,dv){
+  var note=noteOf(dv),id=k+'|'+doc,a=' data-key="'+esc(k)+'" data-doc="'+esc(doc)+'"';
+  if(noteEdit===id)return '<div class="notebox"><textarea id="note-ta" rows="2" maxlength="500" placeholder="چه کاری انجام شد؟ چه موضوعی پیش آمد؟ (اختیاری)">'+esc(note)+'</textarea><div class="row"><button class="btn pri sm" data-act="notesave"'+a+'>ذخیره‌ی توضیحات</button><button class="btn sm" data-act="notecancel">انصراف</button></div></div>';
+  var h='';
+  if(note)h+='<div class="t-note">'+esc(note)+'</div>';
+  if(dv&&canWrite)h+='<button class="btn sm linkbtn" data-act="noteedit"'+a+'>'+(note?'ویرایش توضیحات':'افزودن توضیحات')+'</button>';
+  return h;
+}
 function taskRow(it,j,showMachine,showSk){
   var t=it.t,x=d2j(j),k=doneKey(t,x.jd,it.sk),dv=doneVal(t,x.jd,it.sk),done=!!dv,m=machineOf(t.machine);
   var by=(dv&&typeof dv==='object')?(' · '+esc(dv.by||'')+(dv.at?' · '+timeFa(dv.at):'')):'';
-  return '<label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
+  return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1" data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
     '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
     (it.rng?'<small class="t-rng">یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+'</small>':'')+(t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
-    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>';
+    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+noteBox(k,docOf(t),dv)+'</div>';
 }
 function instGroups(list,j,showSk){
   if(!list.length)return '';
@@ -1147,7 +1166,7 @@ function reportRows(){
     st.info[d].tasks.forEach(function(it){
       var c=inst(it,j);if(!c.due&&!c.done)return;
       var dv=doneVal(it.t,d,it.sk),m=machineOf(it.t.machine),o=(dv&&typeof dv==='object');
-      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?'done':(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):''});
+      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?'done':(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):'',note:noteOf(dv),dv:dv,key:doneKey(it.t,d,it.sk),doc:docOf(it.t)});
     });
   }
   return out;
@@ -1163,7 +1182,7 @@ function reportFilter(rows){
     if(rp.type&&r.t.type!==rp.type)return false;
     if(rp.shift==='none'&&r.sk)return false;
     if((rp.shift==='D'||rp.shift==='N')&&r.sk!==rp.shift)return false;
-    if(q&&(r.t.title+' '+(r.m?r.m.name:'')+' '+r.by+' '+(r.t.desc||'')).toLowerCase().indexOf(q)<0)return false;
+    if(q&&(r.t.title+' '+(r.m?r.m.name:'')+' '+r.by+' '+(r.t.desc||'')+' '+r.note).toLowerCase().indexOf(q)<0)return false;
     return true;
   });
 }
@@ -1183,7 +1202,7 @@ function viewReport(){
     '<div class="field"><label for="rp-machine">دستگاه</label><select id="rp-machine" data-act="rpf" data-k="machine">'+opt('','همه',!rp.machine)+cfg.machines.filter(function(m){return !rp.hall||(m.hall||'بدون سالن')===rp.hall}).map(function(m){return opt(m.id,m.name,rp.machine===m.id)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-type">نوع</label><select id="rp-type" data-act="rpf" data-k="type">'+opt('','همه',!rp.type)+cfg.lists.types.map(function(x){return opt(x,x,rp.type===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-shift">شیفت</label><select id="rp-shift" data-act="rpf" data-k="shift">'+[['','همه'],['D','روز'],['N','شب'],['none','بدون شیفت']].map(function(o){return opt(o[0],o[1],rp.shift===o[0])}).join('')+'</select></div>'+
-    '<div class="field grow"><label for="rp-q">جستجو (کار، دستگاه، انجام‌دهنده)</label><input id="rp-q" type="search" data-act="rpf" data-k="q" value="'+esc(rp.q)+'" autocomplete="off"></div></div>';
+    '<div class="field grow"><label for="rp-q">جستجو (کار، دستگاه، انجام‌دهنده، توضیحات)</label><input id="rp-q" type="search" data-act="rpf" data-k="q" value="'+esc(rp.q)+'" autocomplete="off"></div></div>';
   h+='<div class="row"><button class="btn" data-act="rpreset">پاک‌کردن فیلترها</button><button class="btn" data-act="rpexport"'+(fl.length?'':' disabled')+'>دریافت فایل اکسل (CSV)</button><button class="btn" data-act="rpprint">چاپ</button></div></section>';
   h+='<div class="kpis">'+kpi('کل موارد',fa(fl.length),'','')+kpi('انجام‌شده',fa(dn),'<div class="meter" role="img" aria-label="'+fa(pct)+' درصد"><i style="width:'+pct+'%"></i></div><small>'+fa(pct)+'٪ از موارد سررسیده</small>','ok')+kpi('عقب‌افتاده',fa(lt),'<small>'+(lt?'نیازمند پیگیری':'چیزی عقب نیست')+'</small>',lt?'crit':'')+kpi('انجام‌نشده',fa(fl.length-dn),'','')+'</div>';
   var byH={},byP={};
@@ -1198,17 +1217,17 @@ function viewReport(){
   var last=-1;
   fl.slice(0,rp.limit).forEach(function(r){
     if(r.j!==last){last=r.j;h+='<h3 class="rday">'+dayJ(r.j)+(r.j===todayJ?' <small>(امروز)</small>':'')+'</h3>'}
-    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):'')+'</small></div></div>';
+    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):'')+'</small></div>'+(r.status==='done'?'<div class="rnote">'+noteBox(r.key,r.doc,r.dv)+'</div>':'')+'</div>';
   });
   if(fl.length>rp.limit)h+='<button class="btn" data-act="rpmore">نمایش بیشتر ('+fa(fl.length-rp.limit)+' مورد دیگر)</button>';
   return h+'</section>';
 }
 function exportCsv(){
   var rows=reportFilter(reportRows()),esc2=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  var out=[['تاریخ','شیفت','سالن','دستگاه','کار','نوع','وضعیت','انجام‌دهنده','زمان ثبت']];
+  var out=[['تاریخ','شیفت','سالن','دستگاه','کار','نوع','وضعیت','انجام‌دهنده','زمان ثبت','توضیحات']];
   rows.forEach(function(r){
     var x=d2j(r.j),tm='';if(r.at){try{var d=new Date(r.at);tm=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())}catch(e){}}
-    out.push([x.jy+'/'+pad(x.jm)+'/'+pad(x.jd),r.sk?SHL[r.sk]:'',r.hall,r.m?r.m.name:'',r.t.title,r.t.type||'',RST[r.status],r.by,tm]);
+    out.push([x.jy+'/'+pad(x.jm)+'/'+pad(x.jd),r.sk?SHL[r.sk]:'',r.hall,r.m?r.m.name:'',r.t.title,r.t.type||'',RST[r.status],r.by,tm,r.note]);
   });
   var csv='\ufeff'+out.map(function(r){return r.map(esc2).join(',')}).join('\r\n');
   try{
@@ -1274,7 +1293,7 @@ function syncFreq(p){
 /* فرمی که نیمه‌پر است نباید با به‌روزرسانی خودکار (همگام‌سازی) پاک شود */
 function markDirty(e){
   var t=e.target;if(!t||!t.closest)return;
-  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
+  if((t.id&&/^(ns|nm|nt|et|es|em|ls|le|note)-/.test(t.id))||t.closest('details.ms')){formDirty=true;formAt=Date.now()}
 }
 app.addEventListener('input',markDirty);
 app.addEventListener('change',markDirty);
@@ -1299,6 +1318,14 @@ function saveListEdit(k,i,v){
   if(!v){notify('نام نمی‌تواند خالی باشد.',true);return}
   if(cfg.lists[k].indexOf(v)>=0&&cfg.lists[k][i]!==v){notify('این گزینه از قبل هست.',true);return}
   mutate(function(){renameItem(k,i,v)});
+}
+function saveNote(k,doc){
+  var ta=document.getElementById('note-ta'),txt=ta?ta.value.trim().slice(0,500):'',st=stateFor(doc),old=st.done[k];
+  if(!old)return;
+  var sv=(typeof old==='object')?Object.assign({},old):{by:userName(),at:new Date().toISOString()};
+  if(txt)sv.note=txt;else delete sv.note;
+  st.done[k]=sv;var o={};o['d:'+k]=sv;patchMonth(o,[],doc);
+  noteEdit=null;render(true);
 }
 function submitMachine(){
   var mn=val('nm-name');
@@ -1334,6 +1361,9 @@ app.addEventListener('click',function(e){
   }
   if(act==='mtoday'){gotoMonth(tj.jy,tj.jm,todayJ);return}
   if(!canWrite)return;
+  if(act==='noteedit'){noteEdit=b.dataset.key+'|'+b.dataset.doc;formDirty=true;formAt=Date.now();render(true);var ta0=document.getElementById('note-ta');if(ta0){ta0.focus();ta0.setSelectionRange(ta0.value.length,ta0.value.length)}return}
+  if(act==='notecancel'){noteEdit=null;render(true);return}
+  if(act==='notesave'){saveNote(b.dataset.key,b.dataset.doc);return}
   if(act==='edit'){edit={kind:b.dataset.kind,id:b.dataset.id};render(true);return}
   if(act==='editcancel'){edit=null;render(true);return}
   if(act==='del'){
@@ -1414,9 +1444,13 @@ app.addEventListener('change',function(e){
   if(!canWrite){if(el.type==='checkbox')el.checked=!el.checked;return}
   if(act==='tick'){
     var kk=el.dataset.key,dk='d:'+kk,doc=el.dataset.doc||curDoc(),stt=stateFor(doc);
-    if(el.checked){var sv={by:userName(),at:new Date().toISOString()};stt.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[],doc)}
-    else{delete stt.done[kk];patchMonth({},[dk],doc)}
-    render(true);return;
+    if(el.checked){
+      var sv={by:userName(),at:new Date().toISOString()};stt.done[kk]=sv;var o1={};o1[dk]=sv;patchMonth(o1,[],doc);
+      if(el.dataset.note){noteEdit=kk+'|'+doc;formDirty=true;formAt=Date.now()}
+    }else{delete stt.done[kk];patchMonth({},[dk],doc);if(noteEdit===kk+'|'+doc)noteEdit=null}
+    render(true);
+    if(noteEdit){var ta=document.getElementById('note-ta');if(ta)ta.focus()}
+    return;
   }
   if(act==='ovr'){
     var x=d2j(+el.dataset.j),k=x.jd+'_'+el.dataset.s,ok='o:'+k;
@@ -1455,6 +1489,10 @@ app.addEventListener('keydown',function(e){
     var bt=app.querySelector('[data-act="lstadd"][data-list="'+e.target.id.slice(3)+'"]');
     if(bt)bt.click();
   }
+  if(e.target.id==='note-ta'){
+    if(e.key==='Escape'){noteEdit=null;render(true)}
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();var sb0=app.querySelector('[data-act=notesave]');if(sb0)saveNote(sb0.dataset.key,sb0.dataset.doc)}
+  }
   if(e.target.id==='le-input'){
     if(e.key==='Enter'){e.preventDefault();saveListEdit(e.target.dataset.list,+e.target.dataset.i,e.target.value)}
     if(e.key==='Escape'){edit=null;render(true)}
@@ -1463,6 +1501,7 @@ app.addEventListener('keydown',function(e){
 
 /* ---------- مسیریابی ---------- */
 function route(){
+  noteEdit=null;
   var h=(location.hash||'').replace('#','');
   var map={today:'home',month:'home',pm:'manage',staff:'settings',shifts:'settings'};
   if(h==='month'||h==='today')homeTab=h;

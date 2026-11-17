@@ -395,7 +395,7 @@ var WDS=['ش','ی','د','س','چ','پ','ج'];
 var SHL={D:'روز',N:'شب',W:'روزکار',O:'استراحت',L:'مرخصی'};
 var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',once:'یک روز مشخص',range:'یک‌بار در یک بازه‌ی زمانی'};
 var EVERY=[[1,'هر ماه'],[2,'هر ۲ ماه'],[3,'هر ۳ ماه'],[4,'هر ۴ ماه'],[6,'هر ۶ ماه'],[12,'سالی یک بار']];
-var STABS=[['staff','پرسنل'],['roles','سمت‌ها'],['machines','دستگاه‌ها'],['lists','نوع کار و سالن'],['shifts','چرخه شیفت']];
+var STABS=[['staff','پرسنل'],['roles','سمت‌ها'],['machines','دستگاه‌ها'],['lists','نوع کار و سالن'],['prefs','زمان‌بندی و پیش‌فرض‌ها'],['shifts','چرخه شیفت']];
 var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت شب'],['both','هر شیفت (جدا برای روز و شب)']];
 var SHTXT={any:'',D:'شیفت روز',N:'شیفت شب',both:'هر شیفت'};
 var VIEWS_ORDER=['home','report','rolls','manage','settings'];
@@ -417,6 +417,7 @@ function defaults(){
     anchor:{y:1405,m:1,d:1},
     teams:[{id:'ta',name:'الف',off:0},{id:'tb',name:'ب',off:2},{id:'tc',name:'ج',off:4},{id:'td',name:'د',off:6}],
     staff:[],machines:[],tasks:[],
+    prefs:{freqs:Object.keys(FREQ),freq:'daily',shifts:SHOPT.map(function(o){return o[0]}),shift:'any',type:'',hall:''},
     lists:{roles:['اپراتور','سرپرست شیفت','تعمیرکار'],halls:['سالن نورد فویل','سالن سپراتور'],types:['PM','کنترل','نگهداری']}
   };
 }
@@ -425,6 +426,14 @@ function normalize(d){
   ['teams','staff','machines','tasks'].forEach(function(k){if(!Array.isArray(o[k]))o[k]=b[k]});
   if(typeof o.cycle!=='string'||o.cycle.length<2)o.cycle=b.cycle;
   if(!o.anchor||!o.anchor.y)o.anchor=b.anchor;
+  o.prefs=Object.assign({},b.prefs,(d&&d.prefs)||{});
+  o.prefs.freqs=(Array.isArray(o.prefs.freqs)?o.prefs.freqs:[]).filter(function(k){return FREQ[k]});
+  if(!o.prefs.freqs.length)o.prefs.freqs=Object.keys(FREQ);
+  if(o.prefs.freqs.indexOf(o.prefs.freq)<0)o.prefs.freq=o.prefs.freqs[0];
+  var shk=SHOPT.map(function(q){return q[0]});
+  o.prefs.shifts=(Array.isArray(o.prefs.shifts)?o.prefs.shifts:[]).filter(function(k){return shk.indexOf(k)>=0});
+  if(!o.prefs.shifts.length)o.prefs.shifts=shk;
+  if(o.prefs.shifts.indexOf(o.prefs.shift)<0)o.prefs.shift=o.prefs.shifts[0];
   o.lists=Object.assign({},b.lists,(d&&d.lists)||{});
   ['roles','halls','types'].forEach(function(k){if(!Array.isArray(o.lists[k]))o.lists[k]=b.lists[k].slice()});
   o.staff=o.staff.map(function(x){
@@ -1203,8 +1212,10 @@ function readDate(p,k){
   return{y:y,m:m,d:d};
 }
 function taskFormHtml(p,t){
-  var m=t?machineOf(t.machine):null,hall=m?m.hall:'';
-  var halls=allHalls(),freq=t?t.freq:'daily',sh=t?(t.shift||'any'):'any';
+  var P=cfg.prefs,m=t?machineOf(t.machine):null,hall=m?m.hall:(t?'':P.hall||'');
+  var halls=allHalls(),freq=t?t.freq:P.freq,sh=t?(t.shift||'any'):P.shift;
+  var fk=P.freqs.slice();if(fk.indexOf(freq)<0)fk.push(freq);
+  var sks=SHOPT.filter(function(o){return P.shifts.indexOf(o[0])>=0||o[0]===sh});
   var td={y:tj.jy,m:tj.jm,d:tj.jd};
   function dd(o){return(o&&o.y)?o:td}
   var ev=t?(+t.every||1):1;
@@ -1214,10 +1225,10 @@ function taskFormHtml(p,t){
     '<div class="field grow"><label for="'+p+'-title">۳. عنوان کار</label><input id="'+p+'-title" autocomplete="off" value="'+esc(t?t.title:'')+'"></div></div>'+
     '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
     '<div class="row">'+
-    '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t&&t.type===x)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t?t.type===x:(P.type?P.type===x:false))}).join('')+'</select></div>'+
     '<div class="field"><label>کار ویژه (چند مورد قابل انتخاب)</label>'+msHtml('ms-'+p+'-kind',[KL.work,KL.backup],t?kindsOf(t).map(function(k){return KL[k]}):[],KPH)+'</div>'+
-    '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+Object.keys(FREQ).map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
-    '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+SHOPT.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
+    '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+fk.map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+sks.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
     '<div class="row" id="'+p+'-g-wd"><div class="field"><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div></div>'+
     '<div class="row" id="'+p+'-g-md"><div class="field"><label for="'+p+'-md">روز ماه</label><input id="'+p+'-md" type="number" min="1" max="31" value="'+(t?(+t.monthDay||1):1)+'" inputmode="numeric" style="width:80px"></div>'+
     '<div class="field"><label for="'+p+'-ev">هر چند ماه</label><select id="'+p+'-ev">'+EVERY.map(function(o){return opt(o[0],o[1],ev===o[0])}).join('')+'</select></div></div>'+
@@ -1380,12 +1391,26 @@ function machinesCard(){
   });
   return h+'</div>';
 }
+function viewPrefs(){
+  var P=cfg.prefs,w=canWrite?'':' disabled';
+  function chk(k,list,key,lab){return '<label class="ms-opt"><input type="checkbox" data-act="prefchk" data-k="'+key+'" value="'+esc(k)+'"'+(list.indexOf(k)>=0?' checked':'')+w+'><span>'+esc(lab)+'</span></label>'}
+  function sel(id,key,items,cur,none){return '<div class="field"><label for="'+id+'">'+none[0]+'</label><select id="'+id+'" data-act="prefsel" data-k="'+key+'"'+w+'>'+(none[1]?opt('',none[1],!cur):'')+items.map(function(o){return opt(o[0],o[1],cur===o[0])}).join('')+'</select></div>'}
+  var h='<section class="card stack"><h2>زمان‌بندی کار</h2><p class="hint">گزینه‌هایی که در فرم «افزودن کار» نشان داده شود را مشخص کنید. حداقل یک گزینه باید بماند.</p><div class="stack">'+Object.keys(FREQ).map(function(k){return chk(k,P.freqs,'freqs',FREQ[k])}).join('')+'</div>'+
+    sel('pf-freq','freq',P.freqs.map(function(k){return[k,FREQ[k]]}),P.freq,['گزینه‌ی پیش‌فرض زمان‌بندی',''])+'</section>';
+  h+='<section class="card stack"><h2>شیفت انجام</h2><div class="stack">'+SHOPT.map(function(o){return chk(o[0],P.shifts,'shifts',o[1])}).join('')+'</div>'+
+    sel('pf-shift','shift',SHOPT.filter(function(o){return P.shifts.indexOf(o[0])>=0}),P.shift,['گزینه‌ی پیش‌فرض شیفت',''])+'</section>';
+  h+='<section class="card stack"><h2>پیش‌فرض سایر فیلدهای فرم کار</h2><div class="row">'+
+    sel('pf-type','type',cfg.lists.types.map(function(x){return[x,x]}),P.type,['نوع کار','بدون پیش‌فرض (اولین مورد)'])+
+    sel('pf-hall','hall',allHalls().map(function(x){return[x,x]}),P.hall,['سالن','بدون پیش‌فرض'])+'</div></section>';
+  return h;
+}
 function viewSettings(){
   var h='<div class="seg">'+STABS.map(function(s){return '<button data-act="stab" data-t="'+s[0]+'" aria-pressed="'+(setTab===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
   if(setTab==='staff')return h+viewStaff();
   if(setTab==='roles')return h+listCard(LISTS_META[0]);
   if(setTab==='machines')return h+machinesCard();
   if(setTab==='lists')return h+listCard(LISTS_META[2])+listCard(LISTS_META[1]);
+  if(setTab==='prefs')return h+viewPrefs();
   return h+viewShifts();
 }
 
@@ -1720,6 +1745,14 @@ app.addEventListener('change',function(e){
   if(act==='msform'){
     var d1=el.closest('details'),v1=msChecked(d1);d1.querySelector('.ms-t').textContent=v1.length?v1.join('، '):(d1.dataset.ph||MS_PH);return;
   }
+  if(act==='prefchk'&&canWrite){
+    var pk=el.dataset.k,cur=cfg.prefs[pk].slice(),ix=cur.indexOf(el.value);
+    if(el.checked&&ix<0)cur.push(el.value);if(!el.checked&&ix>=0)cur.splice(ix,1);
+    if(!cur.length){el.checked=true;notify('حداقل یک گزینه باید فعال بماند.',true);return}
+    mutate(function(){cfg.prefs[pk]=cur;var one=pk==='freqs'?'freq':'shift';if(cur.indexOf(cfg.prefs[one])<0)cfg.prefs[one]=cur[0]});
+    return;
+  }
+  if(act==='prefsel'&&canWrite){var pv=el.value,pk2=el.dataset.k;mutate(function(){cfg.prefs[pk2]=pv});return}
   if(!canWrite){if(el.type==='checkbox')el.checked=!el.checked;return}
   if(act==='tick'){
     var kk=el.dataset.key,dk='d:'+kk,doc=el.dataset.doc||curDoc(),stt=stateFor(doc);

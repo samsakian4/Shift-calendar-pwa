@@ -1104,6 +1104,7 @@ function dayDetail(j){
   var rows=staffDay(j),ts=tasksDue(j);
   var h='<section class="card stack"><div class="row between"><h2>'+fmtDate(j)+'</h2><span class="hint">روز: '+esc(teamNames(j,'D'))+' · شب: '+esc(teamNames(j,'N'))+'</span></div>';
   h+='<div class="row">'+warnShift(rows,'D')+warnShift(rows,'N')+'</div>';
+  h+='<div class="group"><h3>PM و کارها</h3>'+(ts.length?instGroups(ts,j,true):'<div class="empty">برای این روز کاری برنامه‌ریزی نشده است.</div>')+'</div>';
   if(cfg.staff.length){
     h+='<div class="group"><h3>وضعیت پرسنل در این روز</h3>';
     rows.forEach(function(r){
@@ -1114,8 +1115,7 @@ function dayDetail(j){
     });
     h+='</div>';
   }
-  h+='<div class="group"><h3>PM و کارها</h3>'+(ts.length?instGroups(ts,j,true):'<div class="empty">برای این روز کاری برنامه‌ریزی نشده است.</div>')+'</div></section>';
-  return h;
+  return h+'</section>';
 }
 function viewMonth(){
   var st=monthStats(99),first=st.first,off=satIdx(first);

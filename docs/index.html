@@ -1830,8 +1830,16 @@ app.addEventListener('change',function(e){
     return;
   }
 });
+var msDown=0;
+app.addEventListener('mousedown',function(e){if(e.target.closest&&e.target.closest('details.ms')){msDown=Date.now()}});
+app.addEventListener('focusout',function(e){
+  var ms=e.target.closest?e.target.closest('details.ms'):null;
+  if(Date.now()-msDown<400)return;
+  if(ms&&ms.open&&!(e.relatedTarget&&ms.contains(e.relatedTarget)))ms.removeAttribute('open');
+});
 app.addEventListener('keydown',function(e){
   var ms=e.target.closest?e.target.closest('details.ms'):null;
+  if(ms&&ms.open&&(e.key==='Escape'||(e.key==='Enter'&&e.target.type==='checkbox'&&ms.dataset.ms!=='ms-ns'))){e.preventDefault();ms.removeAttribute('open');var sm0=ms.querySelector('summary');if(sm0)sm0.focus();return}
   if(e.key==='Tab'&&!e.shiftKey&&canWrite&&ms&&ms.dataset.ms==='ms-ns'){
     var bx0=[].slice.call(ms.querySelectorAll('input[type=checkbox]')),isSum=e.target.tagName==='SUMMARY';
     if((isSum&&!ms.open)||(!isSum&&e.target===bx0[bx0.length-1])||(isSum&&!bx0.length)){e.preventDefault();ms.removeAttribute('open');submitStaff();return}

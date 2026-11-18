@@ -478,7 +478,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -698,6 +698,7 @@ function loadMonth(){
 function neededDocs(){
   var s={},c=curDoc();
   cfg.tasks.forEach(function(t){if(t.freq==='once'||t.freq==='range'){var id=docOf(t);if(id!==c)s[id]=1}});
+  if(view==='report')repMonths().forEach(function(m){var id=monthId(m.jy,m.jm);if(id!==c)s[id]=1});
   rollMachines().forEach(function(m){rollYears().forEach(function(y){s[rollDocId(m.id,y)]=1})});
   return Object.keys(s).slice(0,80);
 }
@@ -974,9 +975,11 @@ function noteBox(k,doc,dv){
 }
 /* ---------- تعیین تکلیف: لغو / غیرقابل‌انجام / تعویق ---------- */
 function resKey(t,j,sk){return doneKey(t,d2j(j).jd,sk)}
+function docForJ(t,j){if(t.freq==='once'||t.freq==='range')return docOf(t);var x=d2j(j);return monthId(x.jy,x.jm)}
+function dvAt(t,j,sk){return stateFor(docForJ(t,j)).done[resKey(t,j,sk)]}
 function resUi(t,j,sk,done){
-  if(done||!canWrite&&!doneVal(t,d2j(j).jd,sk))return '';
-  var k=resKey(t,j,sk),doc=docOf(t),dv=doneVal(t,d2j(j).jd,sk),id=k+'|'+doc;
+  if(done||!canWrite&&!dvAt(t,j,sk))return '';
+  var k=resKey(t,j,sk),doc=docForJ(t,j),dv=dvAt(t,j,sk),id=k+'|'+doc;
   var a=' data-key="'+esc(k)+'" data-doc="'+esc(doc)+'" data-tid="'+esc(t.id)+'" data-j="'+j+'" data-sk="'+esc(sk||'')+'"';
   if(dv&&dv.st){
     var to=dv.to?' ← '+fa(dstr(dv.to)):'';
@@ -1423,7 +1426,31 @@ function viewSettings(){
 
 /* ---------- گزارش ---------- */
 var RST={done:'انجام شد',late:'عقب‌افتاده',today:'امروز',future:'آینده',skip:'غیرقابل‌انجام',cancel:'لغو شد',post:'تعویق'};
+/* ماه‌هایی که گزارش شامل می‌شود (جدیدترین اول): فقط ماه انتخابی، ۳ ماه اخیر، یا از قدیمی‌ترین کار تا امروز */
+function repMonths(){
+  var tm=d2j(todayJ),end=Math.max(tm.jy*12+tm.jm-1,cur.jy*12+cur.jm-1),cm=cur.jy*12+cur.jm-1,start=end;
+  if(rp.scope==='cur'){start=end=cm}
+  else if(rp.scope==='3')start=end-2;
+  else{
+    start=end;
+    cfg.tasks.forEach(function(t){[t.start,t.date,t.from].forEach(function(o){var j=dj(o);if(j!==null){var x=d2j(j),v=x.jy*12+x.jm-1;if(v<start)start=v}})});
+    start=Math.max(start,end-35);
+  }
+  var out=[];for(var v=end;v>=start;v--)out.push({jy:Math.floor(v/12),jm:v%12+1});
+  return out;
+}
 function reportRows(){
+  var ms=repMonths(),out=[],sc=cur,sm=monthState;
+  try{
+    ms.forEach(function(m){
+      if(m.jy===sc.jy&&m.jm===sc.jm){cur=sc;monthState=sm}
+      else{cur={jy:m.jy,jm:m.jm};monthState=extra[monthId(m.jy,m.jm)]||{done:{},ovr:{},x:{}}}
+      out=out.concat(monthRows());
+    });
+  }finally{cur=sc;monthState=sm}
+  return out;
+}
+function monthRows(){
   var st=monthStats(99),out=[];
   for(var d=st.len;d>=1;d--){
     var j=st.first+d-1;
@@ -1484,9 +1511,10 @@ function viewReport(){
   var all=reportRows(),fl=reportFilter(all);
   var dn=fl.filter(function(r){return r.status==='done'}).length,lt=fl.filter(function(r){return r.status==='late'}).length;
   var sofar=fl.filter(function(r){return r.status==='done'||r.j<=todayJ}).length,pct=sofar?Math.round(dn*100/sofar):0;
-  var h='<section class="card stack"><div class="row between"><h2>گزارش '+MONTHS[cur.jm-1]+' '+fa(cur.jy)+'</h2><div class="row"><button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">این ماه</button><button class="btn" data-act="mnext">ماه بعد</button></div></div>';
+  var h='<section class="card stack"><div class="row between"><h2>گزارش '+(rp.scope==='cur'?MONTHS[cur.jm-1]+' '+fa(cur.jy):(rp.scope==='3'?'سه ماه اخیر':'همه‌ی ماه‌ها'))+'</h2>'+(rp.scope==='cur'?'<div class="row"><button class="btn" data-act="mprev">ماه قبل</button><button class="btn" data-act="mtoday">این ماه</button><button class="btn" data-act="mnext">ماه بعد</button></div>':'')+'</div>';
   h=machineTiles(all)+machinePanel(all)+h;
   h+='<div class="filters">'+
+    '<div class="field"><label for="rp-scope">بازه‌ی گزارش</label><select id="rp-scope" data-act="rpf" data-k="scope">'+[['all','همه‌ی ماه‌ها'],['3','سه ماه اخیر'],['cur','فقط ماه انتخابی']].map(function(o){return opt(o[0],o[1],rp.scope===o[0])}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-status">وضعیت</label><select id="rp-status" data-act="rpf" data-k="status">'+[['all','همه'],['done','انجام‌شده'],['pending','انجام‌نشده'],['late','عقب‌افتاده'],['closed','تعویق / لغو / غیرقابل‌انجام']].map(function(o){return opt(o[0],o[1],rp.status===o[0])}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-hall">سالن</label><select id="rp-hall" data-act="rpf" data-k="hall">'+opt('','همه',!rp.hall)+allHalls().concat(cfg.machines.some(function(m){return !m.hall})?['بدون سالن']:[]).map(function(x){return opt(x,x,rp.hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-machine">دستگاه</label><select id="rp-machine" data-act="rpf" data-k="machine">'+opt('','همه',!rp.machine)+cfg.machines.filter(function(m){return !rp.hall||(m.hall||'بدون سالن')===rp.hall}).map(function(m){return opt(m.id,m.name,rp.machine===m.id)}).join('')+'</select></div>'+
@@ -1651,7 +1679,7 @@ app.addEventListener('click',function(e){
   if(act==='resundo'){var s1=stateFor(b.dataset.doc);delete s1.done[b.dataset.key];patchMonth({},['d:'+b.dataset.key],b.dataset.doc);render(true);return}
   if(act==='rpm'){rp.machine=(rp.machine===b.dataset.id)?'':b.dataset.id;rp.hall='';rp.limit=40;render(true);return}
   if(act==='rpmore'){rp.limit+=40;render(true);return}
-  if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40};render(true);return}
+  if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};render(true);return}
   if(act==='rpexport'){exportCsv();return}
   if(act==='rollexport'){exportRolls();return}
   if(act==='rpprint'){try{window.print()}catch(e){}return}
@@ -1740,7 +1768,7 @@ app.addEventListener('change',function(e){
   if(act==='tff'){tf.q=el.value.trim();render(true);return}
   if(act==='mff'){mf.q=el.value.trim();render(true);return}
   if(act==='sff'){sf[el.dataset.k]=el.value.trim();render(true);return}
-  if(act==='rpf'){rp[el.dataset.k]=el.value.trim();if(el.dataset.k==='hall')rp.machine='';rp.limit=40;render(true);return}
+  if(act==='rpf'){rp[el.dataset.k]=el.value.trim();if(el.dataset.k==='hall')rp.machine='';rp.limit=40;render(true);if(el.dataset.k==='scope'&&sb&&session)loadExtra().then(function(){render()},function(){});return}
   if(act==='freqsel'){syncFreq(el.id.slice(0,2));return}
   if(act==='taskhall'){
     var p=el.id.slice(0,2),ms=document.getElementById(p+'-machine');
@@ -1836,6 +1864,7 @@ function route(){
   var v=map[h]||h;
   view=VIEWS_ORDER.indexOf(v)>=0?v:'home';
   edit=null;
+  if(view==='report'&&sb&&session)loadExtra().then(function(){render()},function(){});
   if(view==='home'&&homeTab==='today'&&(cur.jy!==tj.jy||cur.jm!==tj.jm)){cur={jy:tj.jy,jm:tj.jm};selJ=todayJ;watchMonth()}
   render(true);
 }

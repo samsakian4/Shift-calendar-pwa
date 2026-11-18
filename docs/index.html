@@ -520,7 +520,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,focusNt=false,doneOpen=false,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,focusNt=false,doneOpen=false,rl={mid:'',lim:{}},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -996,10 +996,12 @@ function viewRolls(){
     if(!rs.length)h+='<div class="empty">هنوز تعویضی ثبت نشده است.</div>';
     else{
       h+='<div class="scroll"><table class="prev rtab"><thead><tr><th>تاریخ</th><th>نوع</th><th>شماره غلتک</th><th>قطر</th><th>رافنس</th><th>کرون</th><th>شیم پیشنهادی</th><th>شیم اجرا</th><th>اختلاف شیم (٪)</th><th>بک‌آپ بالا</th><th>بک‌آپ پایین</th><th>ثبت‌کننده</th></tr></thead><tbody>';
-      rs.forEach(function(r){
+      var rlim=rl.lim[m.id]||10;
+      rs.slice(0,rlim).forEach(function(r){
         h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+recKind(r)+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+pctTxt(shimPct(r))+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
       });
       h+='</tbody></table></div>';
+      if(rs.length>rlim)h+='<button class="btn" data-act="rlmore" data-id="'+esc(m.id)+'">نمایش بیشتر ('+fa(rs.length-rlim)+' مورد دیگر)</button>';
     }
     h+='</section>';
   });
@@ -1781,6 +1783,7 @@ app.addEventListener('click',function(e){
   if(act==='resset'){setRes(b);return}
   if(act==='resundo'){var s1=stateFor(b.dataset.doc);delete s1.done[b.dataset.key];patchMonth({},['d:'+b.dataset.key],b.dataset.doc);render(true);return}
   if(act==='rpm'){rp.machine=(rp.machine===b.dataset.id)?'':b.dataset.id;rp.hall='';rp.limit=40;render(true);return}
+  if(act==='rlmore'){rl.lim[b.dataset.id]=(rl.lim[b.dataset.id]||10)+10;render(true);return}
   if(act==='rpmore'){rp.limit+=40;render(true);return}
   if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};render(true);return}
   if(act==='rpexport'){exportCsv();return}

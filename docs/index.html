@@ -746,8 +746,11 @@ function subscribe(){
     }
   }).subscribe();
 }
+var started=null;
 function startSession(s){
-  session=s;authErr='';
+  /* supabase-js هر بار که برگه دوباره فعال می‌شود SIGNED_IN می‌فرستد؛ برای همان کاربر چیزی را از نو شروع نکن تا فرم‌های نیمه‌پر نپرد */
+  if(s&&started===s.user.id&&session){session=s;return}
+  session=s;authErr='';started=s?s.user.id:null;
   if(!s){
     if(ch){try{sb.removeChannel(ch)}catch(e){}ch=null}
     clearInterval(pollT);canWrite=false;loadedCfg=false;render(true);return;
@@ -756,7 +759,7 @@ function startSession(s){
   loadOutbox();
   sb.from('shift_editors').select('user_id').eq('user_id',s.user.id).maybeSingle().then(function(r){
     if(r.error)return;
-    canWrite=!!r.data;lsSet('role',{uid:s.user.id,w:canWrite});render(true);
+    var was=canWrite;canWrite=!!r.data;lsSet('role',{uid:s.user.id,w:canWrite});render(was!==canWrite);
   },function(){});
   flush().then(refresh);subscribe();
   clearInterval(pollT);pollT=setInterval(function(){if(!document.hidden)flush().then(refresh)},90000);
@@ -1578,7 +1581,7 @@ var VIEWS={home:viewHome,report:viewReport,rolls:viewRolls,manage:viewPM,setting
 /* ---------- رندر ---------- */
 function editing(){
   var a=document.activeElement;
-  if(formDirty&&Date.now()-formAt<180000)return true;
+  if(formDirty&&Date.now()-formAt<1200000)return true;
   return a&&app.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox';
 }
 function renderTop(){

@@ -327,6 +327,13 @@ details.stdet>summary::-webkit-details-marker{display:none}
 details.stdet>summary h3{margin:0;flex:1;border:0}
 details.stdet>summary::after{content:"▾";color:var(--ink2);padding-inline:8px}
 details.stdet[open]>summary::after{content:"▴"}
+
+details.dnbox>summary{cursor:pointer;list-style:none;min-height:44px;display:flex;align-items:center}
+details.dnbox>summary::-webkit-details-marker{display:none}
+details.dnbox>summary h3{margin:0;flex:1;border:0}
+details.dnbox>summary::after{content:"▾";color:var(--ink2);padding-inline:8px}
+details.dnbox[open]>summary::after{content:"▴"}
+.sect{font-size:13px;color:var(--accent);margin:4px 0 0}
 </style>
 </head>
 <body>
@@ -478,7 +485,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,doneOpen=false,rl={mid:''},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -1109,7 +1116,7 @@ function viewToday(){
 }
 
 /* ---------- تقویم ماه ---------- */
-document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('stdet'))staffOpen=t.open},true);
+document.addEventListener('toggle',function(e){var t=e.target;if(!t||!t.classList)return;if(t.classList.contains('stdet'))staffOpen=t.open;if(t.classList.contains('dnbox'))doneOpen=t.open},true);
 function dayDetail(j){
   var rows=staffDay(j),ts=tasksDue(j);
   var h='<section class="card stack"><div class="row between"><h2>'+fmtDate(j)+'</h2><span class="hint">روز: '+esc(teamNames(j,'D'))+' · شب: '+esc(teamNames(j,'N'))+'</span></div>';
@@ -1305,12 +1312,17 @@ function viewPM(){
   h+='<div class="hallcols">';
   order.forEach(function(hn){
     h+='<section class="card stack hallcol"><div class="row between"><h2>'+esc(hn)+'</h2><small>'+fa(halls[hn].length)+' کار</small></div>';
-    var byM={};
-    halls[hn].forEach(function(t){(byM[t.machine]=byM[t.machine]||[]).push(t)});
-    Object.keys(byM).forEach(function(mid){
-      var m=machineOf(mid);
-      h+='<div class="group"><h3>'+esc(m?m.name:'دستگاه حذف‌شده')+' <small>('+fa(byM[mid].length)+')</small></h3>'+byM[mid].map(taskItem).join('')+'</div>';
-    });
+    function grp(list){
+      var byM={};list.forEach(function(t){(byM[t.machine]=byM[t.machine]||[]).push(t)});
+      return Object.keys(byM).map(function(mid){
+        var m=machineOf(mid);
+        return '<div class="group"><h3>'+esc(m?m.name:'دستگاه حذف‌شده')+' <small>('+fa(byM[mid].length)+')</small></h3>'+byM[mid].map(taskItem).join('')+'</div>';
+      }).join('');
+    }
+    var isDn=function(t){return (t.freq==='once'||t.freq==='range')&&oneDone(t)};
+    var act=halls[hn].filter(function(t){return !isDn(t)}),dn=halls[hn].filter(isDn);
+    h+=(act.length?'<h3 class="sect">انجام‌نشده / در جریان ('+fa(act.length)+')</h3>'+grp(act):'<div class="empty">کار انجام‌نشده‌ای نیست.</div>');
+    if(dn.length)h+='<details class="group dnbox"'+(doneOpen?' open':'')+'><summary><h3>انجام‌شده‌ها ('+fa(dn.length)+') — برای نمایش/پنهان‌کردن کلیک کنید</h3></summary>'+grp(dn)+'</details>';
     h+='</section>';
   });
   return h+'</div>';

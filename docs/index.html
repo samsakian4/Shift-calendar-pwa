@@ -111,25 +111,25 @@ button:disabled,input:disabled,select:disabled{opacity:.55;cursor:not-allowed}
 .task.done .t-main b{text-decoration:line-through;color:var(--ink2);font-weight:400}
 .task .t-late{font-size:12px;color:var(--crit)}
 
-.cal-head{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px;color:var(--ink2)}
+.cal-head{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:15px;font-weight:600;color:var(--ink2)}
 .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-.cell{border:1px solid var(--line);background:var(--surface);border-radius:6px;min-height:72px;padding:4px;display:flex;flex-direction:column;gap:3px;text-align:start;cursor:pointer;min-width:0;overflow:hidden}
+.cell{border:1px solid var(--line);background:var(--surface);border-radius:6px;min-height:96px;padding:6px;display:flex;flex-direction:column;gap:3px;text-align:start;cursor:pointer;min-width:0;overflow:hidden}
 .cell.blank{visibility:hidden;border:0}
 .cell.fri .dn{color:var(--crit)}
 .cell.today{outline:2px solid var(--accent);outline-offset:-1px}
 .cell.sel{background:var(--surface2);border-color:var(--accent)}
-.cell .dn{font-size:13px;font-weight:700;line-height:1.3}
+.cell .dn{font-size:24px;font-weight:800;line-height:1.2}
 .cell .sh{display:flex;flex-direction:column;gap:2px}
-.cell .sh i{display:block;font-style:normal;font-size:10px;line-height:1.5;padding:0 3px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell .sh i{display:block;font-style:normal;font-size:16px;font-weight:700;line-height:1.5;padding:0 4px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cell .sh .s-D{background:var(--day-bg);color:var(--day)}
 .cell .sh .s-N{background:var(--night-bg);color:var(--night)}
-.cell .pm{font-size:10px;color:var(--ink2);margin-top:auto;line-height:1.3}
+.cell .pm{font-size:18px;font-weight:700;color:var(--ink2);margin-top:auto;line-height:1.3}
 .cell .pm.ok{color:var(--good)}
 .cell .pm.late{color:var(--crit);font-weight:700}
 @media (min-width:640px){
-  .cell{min-height:92px;padding:6px}
-  .cell .sh i{font-size:12px;padding:0 6px}
-  .cell .pm{font-size:12px}
+  .cell{min-height:118px;padding:8px}
+  .cell .sh i{font-size:16px;padding:0 6px}
+  .cell .pm{font-size:18px}
 }
 
 .list-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
@@ -303,7 +303,7 @@ details.addbox[open]>summary{margin-bottom:10px}
 .hint{font-size:13px;color:var(--ink2);margin:0}
 .rollform .row{display:flex;flex-wrap:wrap;gap:8px}
 .rollform .field{flex:1 1 120px;min-width:0}
-.rtab{min-width:720px}
+.rtab{min-width:800px}
 .scroll{overflow-x:auto}
 .mtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .mtile{min-height:44px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;font:inherit;cursor:pointer;text-align:center}
@@ -873,6 +873,12 @@ function shimSug(m,dia,bb){
   var rb=+m.refBack||550,rw=+m.refWork||230;
   return Math.round(((rb-bb)/2+(rw-dia))*1000)/1000;
 }
+/* اختلاف درصدی شیم اجراشده نسبت به پیشنهادی: (اجرا − پیشنهادی) ÷ |پیشنهادی| × ۱۰۰ */
+function shimPct(r){
+  if(typeof r.shim!=='number'||typeof r.shimSug!=='number'||r.shimSug===0)return null;
+  return Math.round((r.shim-r.shimSug)/Math.abs(r.shimSug)*1000)/10;
+}
+function pctTxt(p){if(p===null)return '—';return '<span dir="ltr">'+(p>0?'+':(p<0?'−':''))+fa(String(Math.abs(p))).replace('.','٫')+'٪</span>'}
 function recKey(t,sk){return t.id+(sk?'_'+sk:'')}
 function recFor(t,sk){
   var k=recKey(t,sk),rs=recsOf(t.machine);
@@ -887,7 +893,7 @@ function recKind(r){return r.k==='both'||r.k==='backup'?'ورک + بک‌آپ':(
 function rsumHtml(r,m){
   function c(l,v){return '<span class="rc"><small>'+l+'</small><b>'+v+'</b></span>'}
   return '<div class="rgrid">'+c('تاریخ',fa(dstr(r.date)))+c('شماره غلتک',esc(r.no||'—'))+c('قطر',fnum(r.dia))+c('رافنس',esc(r.rough===''||r.rough==null?'—':fnum(r.rough)===('—')?r.rough:(typeof r.rough==='number'?fnum(r.rough):esc(r.rough))))+c('کرون',esc(r.crown===''||r.crown==null?'—':(typeof r.crown==='number'?fnum(r.crown):esc(r.crown))))+
-    c('شیم پیشنهادی',fnum(r.shimSug))+c('شیم اجرا‌شده',fnum(r.shim))+c('بک‌آپ بالا',fnum(r.bt))+c('بک‌آپ پایین',fnum(r.bb))+'</div>';
+    c('شیم پیشنهادی',fnum(r.shimSug))+c('شیم اجرا‌شده',fnum(r.shim))+c('اختلاف شیم',pctTxt(shimPct(r)))+c('بک‌آپ بالا',fnum(r.bt))+c('بک‌آپ پایین',fnum(r.bb))+'</div>';
 }
 function rollPanel(it,j){
   var t=it.t;if(!kindsOf(t).length)return '';
@@ -954,9 +960,9 @@ function viewRolls(){
     h+='<div class="shimbox">'+(b?'<small>قطر بک‌آپ فعلی (از '+fa(dstr(b.date))+')</small><b>بالا '+fnum(b.bt)+' · پایین '+fnum(b.bb)+'</b>':'<small>قطر بک‌آپ هنوز ثبت نشده است.</small>')+'<small>فرمول شیم: (('+(+m.refBack||550)+' − قطر بک‌آپ پایین) ÷ ۲) + ('+(+m.refWork||230)+' − قطر ورک رول)</small></div>';
     if(!rs.length)h+='<div class="empty">هنوز تعویضی ثبت نشده است.</div>';
     else{
-      h+='<div class="scroll"><table class="prev rtab"><thead><tr><th>تاریخ</th><th>نوع</th><th>شماره غلتک</th><th>قطر</th><th>رافنس</th><th>کرون</th><th>شیم پیشنهادی</th><th>شیم اجرا</th><th>بک‌آپ بالا</th><th>بک‌آپ پایین</th><th>ثبت‌کننده</th></tr></thead><tbody>';
+      h+='<div class="scroll"><table class="prev rtab"><thead><tr><th>تاریخ</th><th>نوع</th><th>شماره غلتک</th><th>قطر</th><th>رافنس</th><th>کرون</th><th>شیم پیشنهادی</th><th>شیم اجرا</th><th>اختلاف شیم (٪)</th><th>بک‌آپ بالا</th><th>بک‌آپ پایین</th><th>ثبت‌کننده</th></tr></thead><tbody>';
       rs.forEach(function(r){
-        h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+recKind(r)+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
+        h+='<tr><td>'+fa(dstr(r.date))+'</td><td>'+recKind(r)+'</td><td>'+esc(r.no||'—')+'</td><td>'+fnum(r.dia)+'</td><td>'+(typeof r.rough==='number'?fnum(r.rough):esc(r.rough||'—'))+'</td><td>'+(typeof r.crown==='number'?fnum(r.crown):esc(r.crown||'—'))+'</td><td>'+fnum(r.shimSug)+'</td><td>'+fnum(r.shim)+'</td><td>'+pctTxt(shimPct(r))+'</td><td>'+fnum(r.bt)+'</td><td>'+fnum(r.bb)+'</td><td>'+esc(r.by||'—')+'</td></tr>';
       });
       h+='</tbody></table></div>';
     }
@@ -965,10 +971,10 @@ function viewRolls(){
   return h;
 }
 function exportRolls(){
-  var out=[['دستگاه','سالن','تاریخ','نوع','شماره غلتک','قطر ورک رول','رافنس','کرون','شیم پیشنهادی','شیم اجرا','قطر بک‌آپ بالا','قطر بک‌آپ پایین','ثبت‌کننده']];
+  var out=[['دستگاه','سالن','تاریخ','نوع','شماره غلتک','قطر ورک رول','رافنس','کرون','شیم پیشنهادی','شیم اجرا','اختلاف شیم (٪)','قطر بک‌آپ بالا','قطر بک‌آپ پایین','ثبت‌کننده']];
   var ms=rl.mid?rollMachines().filter(function(m){return m.id===rl.mid}):rollMachines();
-  ms.forEach(function(m){recsOf(m.id).forEach(function(r){out.push([m.name,m.hall||'',dstr(r.date),recKind(r),r.no||'',typeof r.dia==='number'?r.dia:'',typeof r.rough==='number'?r.rough:(r.rough||''),typeof r.crown==='number'?r.crown:(r.crown||''),typeof r.shimSug==='number'?r.shimSug:'',typeof r.shim==='number'?r.shim:'',typeof r.bt==='number'?r.bt:'',typeof r.bb==='number'?r.bb:'',r.by||''])})});
-  saveBlob(buildXlsx({name:'تعویض غلتک',rows:out,widths:[14,18,13,14,14,13,10,10,14,12,15,15,16]}),'rolls-'+tj.jy+'-'+pad(tj.jm)+'-'+pad(tj.jd)+'.xlsx');
+  ms.forEach(function(m){recsOf(m.id).forEach(function(r){out.push([m.name,m.hall||'',dstr(r.date),recKind(r),r.no||'',typeof r.dia==='number'?r.dia:'',typeof r.rough==='number'?r.rough:(r.rough||''),typeof r.crown==='number'?r.crown:(r.crown||''),typeof r.shimSug==='number'?r.shimSug:'',typeof r.shim==='number'?r.shim:'',shimPct(r)===null?'':shimPct(r),typeof r.bt==='number'?r.bt:'',typeof r.bb==='number'?r.bb:'',r.by||''])})});
+  saveBlob(buildXlsx({name:'تعویض غلتک',rows:out,widths:[14,18,13,14,14,13,10,10,14,12,14,15,15,16]}),'rolls-'+tj.jy+'-'+pad(tj.jm)+'-'+pad(tj.jd)+'.xlsx');
 }
 
 /* توضیحات انجام کار: هر تیکِ انجام‌شده می‌تواند یادداشت داشته باشد */

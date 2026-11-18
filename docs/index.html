@@ -359,6 +359,16 @@ html.phone .cell.sel{background:var(--glass);box-shadow:0 0 0 2px var(--accent),
 html.phone .cell.today{outline:2px solid var(--accent);outline-offset:-2px}
 html.phone .cell.blank{background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
 html.phone .task{border-radius:14px}
+/* phone ergonomics v28 */
+html.phone .ms>summary,html.phone details.late>summary,html.phone details.addbox>summary{min-height:44px}
+html.phone .btn.sm,html.phone .srow .btn,html.phone .task .btn{min-height:44px;min-width:44px;padding:0 12px}
+html.phone .top-actions{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+html.phone .top-actions::-webkit-scrollbar{display:none}
+html.phone .top-actions>*{flex:none}
+html.phone button,html.phone summary,html.phone .task{touch-action:manipulation}
+html.phone body{overscroll-behavior-y:contain}
+html.phone .opt{align-items:center}
+html.phone .opt button{min-height:44px;min-width:44px;padding:0 10px}
 </style>
 </head>
 <body>

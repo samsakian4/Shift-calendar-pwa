@@ -441,7 +441,8 @@ var MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مردا�
 var WD=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 var WDS=['ش','ی','د','س','چ','پ','ج'];
 var SHL={D:'روز',N:'شب',W:'روزکار',O:'استراحت',L:'مرخصی'};
-var FREQ={daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',once:'یک روز مشخص',range:'یک‌بار در یک بازه‌ی زمانی'};
+var FREQ_OLD={weekly:'هفتگی (قدیمی)',monthly:'ماهانه (قدیمی)'};
+var FREQ={daily:'روزانه',every:'تکرارشونده (هر چند روز)',once:'یک روز مشخص',range:'یک‌بار در یک بازه‌ی زمانی'};
 var EVERY=[[1,'هر ماه'],[2,'هر ۲ ماه'],[3,'هر ۳ ماه'],[4,'هر ۴ ماه'],[6,'هر ۶ ماه'],[12,'سالی یک بار']];
 var STABS=[['staff','پرسنل'],['roles','سمت‌ها'],['machines','دستگاه‌ها'],['lists','نوع کار و سالن'],['prefs','زمان‌بندی و پیش‌فرض‌ها'],['shifts','چرخه شیفت']];
 var SHOPT=[['any','فرقی ندارد'],['D','شیفت روز'],['N','شیفت شب'],['both','هر شیفت (جدا برای روز و شب)']];
@@ -476,6 +477,7 @@ function normalize(d){
   if(!o.anchor||!o.anchor.y)o.anchor=b.anchor;
   o.prefs=Object.assign({},b.prefs,(d&&d.prefs)||{});
   o.prefs.freqs=(Array.isArray(o.prefs.freqs)?o.prefs.freqs:[]).filter(function(k){return FREQ[k]});
+  if(!o.prefs.evAdded){o.prefs.evAdded=1;if(o.prefs.freqs.indexOf('every')<0)o.prefs.freqs.push('every')}
   if(!o.prefs.freqs.length)o.prefs.freqs=Object.keys(FREQ);
   if(o.prefs.freqs.indexOf(o.prefs.freq)<0)o.prefs.freq=o.prefs.freqs[0];
   var shk=SHOPT.map(function(q){return q[0]});
@@ -578,6 +580,7 @@ function tasksDue(j){
       var sj=dj(t.start);
       if(sj!==null&&j<sj)return;
       if(f==='daily')hit=true;
+      else if(f==='every'){var nn=Math.max(1,+t.n||1);hit=(sj!==null&&mod(j-sj,nn)===0)}
       else if(f==='weekly')hit=(+t.weekday===w);
       else if(f==='monthly'){
         hit=(Math.min(+t.monthDay||1,len)===x.jd);
@@ -1257,7 +1260,8 @@ function freqText(t){
   var a,sh=SHTXT[t.shift||'any'],st=fmtStart(t.start);
   if(t.freq==='once')return 'یک‌بار، '+fmtStart(t.date)+(sh?' · '+sh:'');
   if(t.freq==='range')return 'یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+(sh?' · '+sh:'');
-  if(t.freq==='weekly')a='هفتگی، '+WD[+t.weekday||0];
+  if(t.freq==='every'){var n=+t.n||1;a=n===1?'هر روز':n===7?'هر ۷ روز (هفتگی)':'هر '+fa(n)+' روز'}
+  else if(t.freq==='weekly')a='هفتگی، '+WD[+t.weekday||0];
   else if(t.freq==='monthly'){var ev=+t.every||1;a=(ev===1?'ماهانه':ev===12?'سالانه':'هر '+fa(ev)+' ماه')+'، روز '+fa(+t.monthDay||1)}
   else a='روزانه';
   return a+(sh?' · '+sh:'')+(st?' · از '+st:'');
@@ -1288,8 +1292,9 @@ function taskFormHtml(p,t){
     '<div class="row">'+
     '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t?t.type===x:(P.type?P.type===x:false))}).join('')+'</select></div>'+
     '<div class="field"><label>کار ویژه (چند مورد قابل انتخاب)</label>'+msHtml('ms-'+p+'-kind',[KL.work,KL.backup],t?kindsOf(t).map(function(k){return KL[k]}):[],KPH)+'</div>'+
-    '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+fk.map(function(k){return opt(k,FREQ[k],freq===k)}).join('')+'</select></div>'+
+    '<div class="field"><label for="'+p+'-freq">زمان‌بندی</label><select id="'+p+'-freq" data-act="freqsel">'+fk.map(function(k){return opt(k,FREQ[k]||FREQ_OLD[k],freq===k)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-shift">شیفت انجام</label><select id="'+p+'-shift">'+sks.map(function(o){return opt(o[0],o[1],sh===o[0])}).join('')+'</select></div></div>'+
+    '<div class="row" id="'+p+'-g-n"><div class="field"><label for="'+p+'-n">هر چند روز یک‌بار تکرار شود؟</label><input id="'+p+'-n" type="number" min="1" max="365" value="'+(t&&t.n?(+t.n):7)+'" inputmode="numeric" style="width:90px"></div><span class="hint grow">از «تاریخ شروع» حساب می‌شود؛ مثلاً ۷ یعنی هر ۷ روز، ۱۴ یعنی هر دو هفته.</span></div>'+
     '<div class="row" id="'+p+'-g-wd"><div class="field"><label for="'+p+'-wd">روز هفته</label><select id="'+p+'-wd">'+WD.map(function(w,i){return opt(i,w,t&&+t.weekday===i)}).join('')+'</select></div></div>'+
     '<div class="row" id="'+p+'-g-md"><div class="field"><label for="'+p+'-md">روز ماه</label><input id="'+p+'-md" type="number" min="1" max="31" value="'+(t?(+t.monthDay||1):1)+'" inputmode="numeric" style="width:80px"></div>'+
     '<div class="field"><label for="'+p+'-ev">هر چند ماه</label><select id="'+p+'-ev">'+EVERY.map(function(o){return opt(o[0],o[1],ev===o[0])}).join('')+'</select></div></div>'+
@@ -1316,9 +1321,10 @@ function readTask(p){
     if(f!=='once'&&f!=='range'){notify('تعویض غلتک باید «یک روز مشخص» یا «یک‌بار در یک بازه» باشد.',true);return null}
   }
   var o={kinds:kinds,machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
+  if(f==='every'){o.n=Math.max(1,Math.min(365,Math.round(+val(p+'-n'))||0));if(!o.n){notify('تعداد روز تکرار را وارد کنید.',true);return null}}
   if(f==='weekly')o.weekday=+val(p+'-wd')||0;
   if(f==='monthly'){o.monthDay=Math.max(1,Math.min(31,+val(p+'-md')||1));o.every=+val(p+'-ev')||1}
-  if(f==='daily'||f==='weekly'||f==='monthly'){o.start=readDate(p,'st');if(!o.start){notify('تاریخ شروع درست نیست.',true);return null}}
+  if(f==='daily'||f==='every'||f==='weekly'||f==='monthly'){o.start=readDate(p,'st');if(!o.start){notify('تاریخ شروع درست نیست.',true);return null}}
   if(f==='once'){o.date=readDate(p,'dt');if(!o.date){notify('تاریخ انجام درست نیست.',true);return null}}
   if(f==='range'){
     o.from=readDate(p,'fr');o.to=readDate(p,'to');
@@ -1711,7 +1717,7 @@ function render(force){
 }
 function syncFreq(p){
   var f=$('#'+p+'-freq').value;
-  var show={wd:f==='weekly',md:f==='monthly',start:f==='daily'||f==='weekly'||f==='monthly',once:f==='once',range:f==='range',rh:f==='range'};
+  var show={n:f==='every',wd:f==='weekly',md:f==='monthly',start:f==='daily'||f==='every'||f==='weekly'||f==='monthly',once:f==='once',range:f==='range',rh:f==='range'};
   Object.keys(show).forEach(function(k){var e=$('#'+p+'-g-'+k);if(e)e.hidden=!show[k]});
 }
 /* فرمی که نیمه‌پر است نباید با به‌روزرسانی خودکار (همگام‌سازی) پاک شود */

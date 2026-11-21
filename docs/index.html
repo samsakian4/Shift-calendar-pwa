@@ -522,7 +522,7 @@ var now=new Date();
 var todayJ=g2d(now.getFullYear(),now.getMonth()+1,now.getDate());
 var tj=d2j(todayJ);
 var cfg=normalize(),monthState={done:{},ovr:{}};
-var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,focusNt=false,doneOpen=false,rl={mid:'',lim:{}},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};
+var cur={jy:tj.jy,jm:tj.jm},selJ=todayJ,view='home',homeTab='today',setTab='staff',extra={},todayFilter='all',rollEdit=null,resEdit=null,staffOpen=false,focusNt=false,doneOpen=false,rl={mid:'',lim:{}},noteEdit=null,tf={q:''},mf={q:''},lastMHall='',formDirty=false,formAt=0,lastAdd={kind:'shift',team:'',hall:''},sf={q:'',team:''},rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',title:'',limit:40,scope:'all'};
 var canWrite=false,loadedCfg=false,slow=false,errMsg='',dirty=false,edit=null;
 var anchorJ=0;
 function calcAnchor(){try{anchorJ=j2d(+cfg.anchor.y,+cfg.anchor.m,+cfg.anchor.d)}catch(e){anchorJ=0}}
@@ -1534,6 +1534,7 @@ function reportFilter(rows){
     if(rp.hall&&r.hall!==rp.hall)return false;
     if(rp.machine&&r.t.machine!==rp.machine)return false;
     if(rp.type&&r.t.type!==rp.type)return false;
+    if(rp.title&&r.t.title!==rp.title)return false;
     if(rp.shift==='none'&&r.sk)return false;
     if((rp.shift==='D'||rp.shift==='N')&&r.sk!==rp.shift)return false;
     if(q&&(r.t.title+' '+(r.m?r.m.name:'')+' '+r.by+' '+(r.t.desc||'')+' '+r.note).toLowerCase().indexOf(q)<0)return false;
@@ -1569,6 +1570,26 @@ function machinePanel(all){
   if(m.roll){var rs=recsOf(m.id).slice(0,3);h+='<h3>آخرین تعویض‌های غلتک</h3>'+(rs.length?rs.map(function(r){return '<div class="rollbox">'+rsumHtml(r,m)+'</div>'}).join(''):'<small class="muted">هنوز ثبت نشده است.</small>')}
   return h+'</section>';
 }
+function titleList(rows){
+  var seen={},out=[];rows.forEach(function(r){var t=r.t.title;if(t&&!seen[t]){seen[t]=1;out.push(t)}});
+  return out.sort(function(a,b){return a.localeCompare(b,'fa')});
+}
+function titleSummary(fl){
+  if(!rp.title||!fl.length)return '';
+  var g={},order=[];
+  fl.forEach(function(r){
+    var k=r.t.machine||'-',o=g[k];
+    if(!o){o=g[k]={m:r.m,n:0,d:0,last:null};order.push(k)}
+    o.n++;
+    if(r.status==='done'){o.d++;if(!o.last||r.j>o.last.j)o.last=r}
+  });
+  var h='<section class="card stack"><h2>«'+esc(rp.title)+'» به تفکیک دستگاه</h2>';
+  order.sort(function(a,b){return g[b].d-g[a].d}).forEach(function(k){
+    var o=g[k],l=o.last;
+    h+='<div class="rrow"><div class="rmain"><b>'+esc(o.m?o.m.name:'دستگاه حذف‌شده')+'</b><small>'+esc(o.m&&o.m.hall?o.m.hall:'')+'</small></div><div class="rwho"><small>'+fa(o.d)+' بار انجام از '+fa(o.n)+(l?'<br>آخرین: '+dayJ(l.j)+(l.by?' · '+esc(l.by):''):'<br>هنوز انجام نشده')+'</small></div></div>';
+  });
+  return h+'</section>';
+}
 function viewReport(){
   var all=reportRows(),fl=reportFilter(all);
   var dn=fl.filter(function(r){return r.status==='done'}).length,lt=fl.filter(function(r){return r.status==='late'}).length;
@@ -1580,6 +1601,7 @@ function viewReport(){
     '<div class="field"><label for="rp-status">وضعیت</label><select id="rp-status" data-act="rpf" data-k="status">'+[['all','همه'],['done','انجام‌شده'],['pending','انجام‌نشده'],['late','عقب‌افتاده'],['closed','تعویق / لغو / غیرقابل‌انجام']].map(function(o){return opt(o[0],o[1],rp.status===o[0])}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-hall">سالن</label><select id="rp-hall" data-act="rpf" data-k="hall">'+opt('','همه',!rp.hall)+allHalls().concat(cfg.machines.some(function(m){return !m.hall})?['بدون سالن']:[]).map(function(x){return opt(x,x,rp.hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-machine">دستگاه</label><select id="rp-machine" data-act="rpf" data-k="machine">'+opt('','همه',!rp.machine)+cfg.machines.filter(function(m){return !rp.hall||(m.hall||'بدون سالن')===rp.hall}).map(function(m){return opt(m.id,m.name,rp.machine===m.id)}).join('')+'</select></div>'+
+    '<div class="field"><label for="rp-title">عنوان کار</label><select id="rp-title" data-act="rpf" data-k="title">'+opt('','همه‌ی عنوان‌ها',!rp.title)+titleList(all).map(function(x){return opt(x,x,rp.title===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-type">نوع</label><select id="rp-type" data-act="rpf" data-k="type">'+opt('','همه',!rp.type)+cfg.lists.types.map(function(x){return opt(x,x,rp.type===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="rp-shift">شیفت</label><select id="rp-shift" data-act="rpf" data-k="shift">'+[['','همه'],['D','روز'],['N','شب'],['none','بدون شیفت']].map(function(o){return opt(o[0],o[1],rp.shift===o[0])}).join('')+'</select></div>'+
     '<div class="field grow"><label for="rp-q">جستجو (کار، دستگاه، انجام‌دهنده، توضیحات)</label><input id="rp-q" type="search" data-act="rpf" data-k="q" value="'+esc(rp.q)+'" autocomplete="off"></div></div>';
@@ -1592,6 +1614,7 @@ function viewReport(){
     h+='<div class="two"><section class="card stack"><h2>به تفکیک سالن</h2>'+hk.map(function(k){return barRow(k,byH[k].d,byH[k].n)}).join('')+'</section>';
     h+='<section class="card stack"><h2>انجام‌دهندگان</h2>'+(pk.length?pk.map(function(k){return '<div class="row between"><span>'+esc(k)+'</span><b>'+fa(byP[k])+' کار</b></div>'}).join(''):'<small class="muted">هنوز کاری انجام نشده است.</small>')+'</section></div>';
   }
+  h+=titleSummary(fl);
   h+='<section class="card stack"><h2>فهرست کارها <small>('+fa(fl.length)+' مورد، تازه‌ترین بالا)</small></h2>';
   if(!fl.length)h+='<div class="empty">موردی پیدا نشد. فیلترها را کم کنید یا ماه دیگری را ببینید.</div>';
   var last=-1;
@@ -1791,7 +1814,7 @@ app.addEventListener('click',function(e){
   if(act==='rpm'){rp.machine=(rp.machine===b.dataset.id)?'':b.dataset.id;rp.hall='';rp.limit=40;render(true);return}
   if(act==='rlmore'){rl.lim[b.dataset.id]=(rl.lim[b.dataset.id]||10)+10;render(true);return}
   if(act==='rpmore'){rp.limit+=40;render(true);return}
-  if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',limit:40,scope:'all'};render(true);return}
+  if(act==='rpreset'){rp={status:'all',hall:'',machine:'',type:'',shift:'',q:'',title:'',limit:40,scope:'all'};render(true);return}
   if(act==='rpexport'){exportCsv();return}
   if(act==='rollexport'){exportRolls();return}
   if(act==='rpprint'){try{window.print()}catch(e){}return}

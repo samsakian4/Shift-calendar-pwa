@@ -1019,12 +1019,21 @@ function exportRolls(){
 
 /* توضیحات انجام کار: هر تیکِ انجام‌شده می‌تواند یادداشت داشته باشد */
 function noteOf(dv){return(dv&&typeof dv==='object'&&dv.note)||''}
-function noteBox(k,doc,dv){
-  var note=noteOf(dv),id=k+'|'+doc,a=' data-key="'+esc(k)+'" data-doc="'+esc(doc)+'"';
-  if(noteEdit===id)return '<div class="notebox"><textarea id="note-ta" rows="2" maxlength="500" placeholder="چه کاری انجام شد؟ چه موضوعی پیش آمد؟ (اختیاری)">'+esc(note)+'</textarea><div class="row"><button class="btn pri sm" data-act="notesave"'+a+'>ذخیره‌ی توضیحات</button><button class="btn sm" data-act="notecancel">انصراف</button></div></div>';
+var UNITS=['لیتر','میلی‌لیتر','کیلوگرم','گرم','عدد','قوطی','بشکه'];
+function qtyTxt(dv){return(dv&&typeof dv==='object'&&dv.q!=null&&isFinite(+dv.q))?fnum(+dv.q)+(dv.u?' '+dv.u:''):''}
+function noteBox(k,doc,dv,t){
+  var note=noteOf(dv),id=k+'|'+doc,a=' data-key="'+esc(k)+'" data-doc="'+esc(doc)+'"',qt=qtyTxt(dv);
+  if(noteEdit===id){
+    var q0=(dv&&typeof dv==='object'&&dv.q!=null)?dv.q:'',u0=(dv&&typeof dv==='object'&&dv.u)||(t&&t.unit)||'';
+    return '<div class="notebox"><textarea id="note-ta" rows="2" maxlength="500" placeholder="چه کاری انجام شد؟ چه موضوعی پیش آمد؟ (اختیاری)">'+esc(note)+'</textarea>'+
+      '<div class="row"><div class="field"><label for="note-q">مقدار مصرفی (اختیاری)</label><input id="note-q" type="number" step="any" min="0" inputmode="decimal" value="'+esc(q0)+'" placeholder="مثلاً ۵" style="width:110px"></div>'+
+      '<div class="field"><label for="note-u">واحد</label><input id="note-u" list="unitlist" value="'+esc(u0)+'" placeholder="لیتر، کیلوگرم، ..." style="width:130px" autocomplete="off"><datalist id="unitlist">'+UNITS.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist></div></div>'+
+      '<div class="row"><button class="btn pri sm" data-act="notesave"'+a+'>ذخیره</button><button class="btn sm" data-act="notecancel">انصراف</button></div></div>';
+  }
   var h='';
+  if(qt)h+='<div class="t-note"><b>مقدار: '+esc(qt)+'</b></div>';
   if(note)h+='<div class="t-note">'+esc(note)+'</div>';
-  if(dv&&canWrite)h+='<button class="btn sm linkbtn" data-act="noteedit"'+a+'>'+(note?'ویرایش توضیحات':'افزودن توضیحات')+'</button>';
+  if(dv&&canWrite)h+='<button class="btn sm linkbtn" data-act="noteedit"'+a+'>'+(note||qt?'ویرایش توضیحات / مقدار':'افزودن توضیحات / مقدار')+'</button>';
   return h;
 }
 /* ---------- تعیین تکلیف: لغو / غیرقابل‌انجام / تعویق ---------- */
@@ -1072,7 +1081,7 @@ function taskRow(it,j,showMachine,showSk){
   return '<div class="taskw"><label class="task'+(done?' done':'')+'"><input type="checkbox" data-act="tick" data-note="1"'+(kindsOf(t).length?' data-tid="'+esc(t.id)+'" data-sk="'+esc(it.sk||'')+'"':'')+' data-key="'+esc(k)+'" data-doc="'+esc(docOf(t))+'"'+(done?' checked':'')+dis()+'>'+
     '<span class="t-main"><b>'+esc(t.title)+'</b>'+(showMachine?'<small>'+esc(m?m.name:'دستگاه حذف‌شده')+'</small>':'')+
     (it.rng?'<small class="t-rng">یک‌بار در بازه‌ی '+fmtStart(t.from)+' تا '+fmtStart(t.to)+'</small>':'')+(t.desc?'<small class="t-desc">'+esc(t.desc)+'</small>':'')+(done&&by?'<small class="t-by">انجام شد'+by+'</small>':'')+'</span>'+
-    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+rollPanel(it,j)+resUi(t,j,it.sk,done)+noteBox(k,docOf(t),dv)+'</div>';
+    (showSk&&it.sk?shiftChip(it.sk):'')+'<span class="chip '+typeClass(t.type)+'">'+esc(t.type||'')+'</span></label>'+rollPanel(it,j)+resUi(t,j,it.sk,done)+noteBox(k,docOf(t),dv,t)+'</div>';
 }
 function instGroups(list,j,showSk){
   if(!list.length)return '';
@@ -1288,6 +1297,7 @@ function taskFormHtml(p,t){
     '<div class="field"><label for="'+p+'-hall">۱. سالن</label><select id="'+p+'-hall" data-act="taskhall">'+opt('','بدون سالن',hall==='')+halls.map(function(x){return opt(x,x,hall===x)}).join('')+'</select></div>'+
     '<div class="field"><label for="'+p+'-machine">۲. دستگاه</label><select id="'+p+'-machine">'+machineOptions(hall,t?t.machine:'')+'</select></div>'+
     '<div class="field grow"><label for="'+p+'-title">۳. عنوان کار</label><input id="'+p+'-title" autocomplete="off" value="'+esc(t?t.title:'')+'"></div></div>'+
+    '<div class="field"><label for="'+p+'-unit">واحد مقدار مصرفی (اختیاری؛ مثلاً لیتر برای روغن)</label><input id="'+p+'-unit" list="unitlist2" value="'+esc(t&&t.unit?t.unit:'')+'" autocomplete="off" style="width:160px"><datalist id="unitlist2">'+UNITS.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist></div>'+
     '<div class="field"><label for="'+p+'-desc">۴. شرح کار (اختیاری)</label><textarea id="'+p+'-desc" rows="2">'+esc(t?t.desc:'')+'</textarea></div>'+
     '<div class="row">'+
     '<div class="field"><label for="'+p+'-type">نوع</label><select id="'+p+'-type">'+cfg.lists.types.concat(t&&t.type&&cfg.lists.types.indexOf(t.type)<0?[t.type]:[]).map(function(x){return opt(x,x,t?t.type===x:(P.type?P.type===x:false))}).join('')+'</select></div>'+
@@ -1320,7 +1330,7 @@ function readTask(p){
     if(!mm||!mm.roll){notify('این دستگاه «غلتک‌دار» علامت نخورده است. در تنظیمات، تب دستگاه‌ها، آن را ویرایش کنید.',true);return null}
     if(f!=='once'&&f!=='range'){notify('تعویض غلتک باید «یک روز مشخص» یا «یک‌بار در یک بازه» باشد.',true);return null}
   }
-  var o={kinds:kinds,machine:mid,title:title,desc:val(p+'-desc'),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
+  var o={kinds:kinds,machine:mid,title:title,desc:val(p+'-desc'),unit:val(p+'-unit').slice(0,20),type:val(p+'-type'),freq:f,shift:val(p+'-shift')||'any'};
   if(f==='every'){o.n=Math.max(1,Math.min(365,Math.round(+val(p+'-n'))||0));if(!o.n){notify('تعداد روز تکرار را وارد کنید.',true);return null}}
   if(f==='weekly')o.weekday=+val(p+'-wd')||0;
   if(f==='monthly'){o.monthDay=Math.max(1,Math.min(31,+val(p+'-md')||1));o.every=+val(p+'-ev')||1}
@@ -1519,7 +1529,7 @@ function monthRows(){
     st.info[d].tasks.forEach(function(it){
       var c=inst(it,j),dv=doneVal(it.t,d,it.sk);if(!c.due&&!c.done&&!(dv&&dv.st))return;
       var m=machineOf(it.t.machine),o=(dv&&typeof dv==='object');
-      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?(dv.st||'done'):(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):'',note:noteOf(dv),dv:dv,key:doneKey(it.t,d,it.sk),doc:docOf(it.t)});
+      out.push({j:j,t:it.t,sk:it.sk,m:m,hall:m&&m.hall?m.hall:'بدون سالن',status:dv?(dv.st||'done'):(j<todayJ?'late':(j===todayJ?'today':'future')),by:o?(dv.by||''):'',at:o?(dv.at||''):'',note:noteOf(dv),q:(o&&dv.q!=null&&isFinite(+dv.q)?+dv.q:null),u:(o?(dv.u||''):''),dv:dv,key:doneKey(it.t,d,it.sk),doc:docOf(it.t)});
     });
   }
   return out;
@@ -1574,20 +1584,22 @@ function titleList(rows){
   var seen={},out=[];rows.forEach(function(r){var t=r.t.title;if(t&&!seen[t]){seen[t]=1;out.push(t)}});
   return out.sort(function(a,b){return a.localeCompare(b,'fa')});
 }
+function qsum(o){return Object.keys(o).map(function(u){return fnum(Math.round(o[u]*100)/100)+(u==='—'?'':' '+u)}).join(' + ')}
 function titleSummary(fl){
   if(!rp.title||!fl.length)return '';
-  var g={},order=[];
+  var g={},order=[],tot={};
   fl.forEach(function(r){
     var k=r.t.machine||'-',o=g[k];
     if(!o){o=g[k]={m:r.m,n:0,d:0,last:null};order.push(k)}
     o.n++;
-    if(r.status==='done'){o.d++;if(!o.last||r.j>o.last.j)o.last=r}
+    if(r.status==='done'){o.d++;if(!o.last||r.j>o.last.j)o.last=r;if(r.q!==null){var uu=r.u||'—';o.q=o.q||{};o.q[uu]=(o.q[uu]||0)+r.q;tot[uu]=(tot[uu]||0)+r.q}}
   });
   var h='<section class="card stack"><h2>«'+esc(rp.title)+'» به تفکیک دستگاه</h2>';
   order.sort(function(a,b){return g[b].d-g[a].d}).forEach(function(k){
     var o=g[k],l=o.last;
-    h+='<div class="rrow"><div class="rmain"><b>'+esc(o.m?o.m.name:'دستگاه حذف‌شده')+'</b><small>'+esc(o.m&&o.m.hall?o.m.hall:'')+'</small></div><div class="rwho"><small>'+fa(o.d)+' بار انجام از '+fa(o.n)+(l?'<br>آخرین: '+dayJ(l.j)+(l.by?' · '+esc(l.by):''):'<br>هنوز انجام نشده')+'</small></div></div>';
+    h+='<div class="rrow"><div class="rmain"><b>'+esc(o.m?o.m.name:'دستگاه حذف‌شده')+'</b><small>'+esc(o.m&&o.m.hall?o.m.hall:'')+'</small></div><div class="rwho"><small>'+fa(o.d)+' بار انجام از '+fa(o.n)+(o.q?'<br><b>مجموع مقدار: '+qsum(o.q)+'</b>':'')+(l?'<br>آخرین: '+dayJ(l.j)+(l.by?' · '+esc(l.by):''):'<br>هنوز انجام نشده')+'</small></div></div>';
   });
+  if(Object.keys(tot).length)h=h.replace('</h2>','</h2><div class="row between"><b>جمع کل مقدار (همه‌ی دستگاه‌ها)</b><b>'+qsum(tot)+'</b></div>');
   return h+'</section>';
 }
 function viewReport(){
@@ -1620,7 +1632,7 @@ function viewReport(){
   var last=-1;
   fl.slice(0,rp.limit).forEach(function(r){
     if(r.j!==last){last=r.j;h+='<h3 class="rday">'+dayJ(r.j)+(r.j===todayJ?' <small>(امروز)</small>':'')+'</h3>'}
-    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):(r.status==='post'&&r.dv&&r.dv.to?'تا '+fa(dstr(r.dv.to)):''))+'</small></div>'+(r.status==='done'?'<div class="rnote">'+noteBox(r.key,r.doc,r.dv)+'</div>':(r.status!=='future'?'<div class="rnote">'+resUi(r.t,r.j,r.sk,false)+(r.dv?noteBox(r.key,r.doc,r.dv):'')+'</div>':''))+'</div>';
+    h+='<div class="rrow"><span class="chip st-'+r.status+'">'+RST[r.status]+'</span><div class="rmain"><b>'+esc(r.t.title)+'</b><small>'+esc(r.m?r.m.name:'دستگاه حذف‌شده')+' · '+esc(r.hall)+(r.sk?' · شیفت '+SHL[r.sk]:'')+' · '+esc(r.t.type||'')+'</small></div><div class="rwho"><small>'+(r.status==='done'?esc(r.by||'—')+(r.at?' · '+timeFa(r.at):''):(r.status==='post'&&r.dv&&r.dv.to?'تا '+fa(dstr(r.dv.to)):''))+'</small></div>'+(r.status==='done'?'<div class="rnote">'+noteBox(r.key,r.doc,r.dv,r.t)+'</div>':(r.status!=='future'?'<div class="rnote">'+resUi(r.t,r.j,r.sk,false)+(r.dv?noteBox(r.key,r.doc,r.dv,r.t):'')+'</div>':''))+'</div>';
   });
   if(fl.length>rp.limit)h+='<button class="btn" data-act="rpmore">نمایش بیشتر ('+fa(fl.length-rp.limit)+' مورد دیگر)</button>';
   return h+'</section>';
@@ -1680,12 +1692,12 @@ function saveBlob(blob,name){
 
 function exportCsv(){
   var rows=reportFilter(reportRows());
-  var out=[['تاریخ','شیفت','سالن','دستگاه','کار','نوع','وضعیت','انجام‌دهنده','زمان ثبت','توضیحات']];
+  var out=[['تاریخ','شیفت','سالن','دستگاه','کار','نوع','وضعیت','انجام‌دهنده','زمان ثبت','مقدار','واحد','توضیحات']];
   rows.forEach(function(r){
     var x=d2j(r.j),tm='';if(r.at){try{var d=new Date(r.at);tm=pad(d.getHours())+':'+pad(d.getMinutes())+' '+d2j(g2d(d.getFullYear(),d.getMonth()+1,d.getDate())).jy+'/'+pad(d2j(g2d(d.getFullYear(),d.getMonth()+1,d.getDate())).jm)+'/'+pad(d2j(g2d(d.getFullYear(),d.getMonth()+1,d.getDate())).jd)}catch(e){}}
-    out.push([x.jy+'/'+pad(x.jm)+'/'+pad(x.jd),r.sk?SHL[r.sk]:'',r.hall,r.m?r.m.name:'',r.t.title,r.t.type||'',RST[r.status],r.by,tm,r.note]);
+    out.push([x.jy+'/'+pad(x.jm)+'/'+pad(x.jd),r.sk?SHL[r.sk]:'',r.hall,r.m?r.m.name:'',r.t.title,r.t.type||'',RST[r.status],r.by,tm,r.q===null?'':r.q,r.u||'',r.note]);
   });
-  saveBlob(buildXlsx({name:'گزارش کارها',rows:out,widths:[13,9,18,16,30,16,14,16,18,40]}),'report-'+tj.jy+'-'+pad(tj.jm)+'-'+pad(tj.jd)+'.xlsx');
+  saveBlob(buildXlsx({name:'گزارش کارها',rows:out,widths:[13,9,18,16,30,16,14,16,18,10,10,40]}),'report-'+tj.jy+'-'+pad(tj.jm)+'-'+pad(tj.jd)+'.xlsx');
 }
 
 /* ---------- ورود ---------- */
@@ -1778,6 +1790,8 @@ function saveNote(k,doc){
   if(!old)return;
   var sv=(typeof old==='object')?Object.assign({},old):{by:userName(),at:new Date().toISOString()};
   if(txt)sv.note=txt;else delete sv.note;
+  var qe=document.getElementById('note-q'),ue=document.getElementById('note-u'),qv=qe?qe.value.trim():'';
+  if(qv!==''&&isFinite(+qv)&&+qv>=0){sv.q=+qv;var uv=ue?ue.value.trim().slice(0,20):'';if(uv)sv.u=uv;else delete sv.u}else{delete sv.q;delete sv.u}
   st.done[k]=sv;var o={};o['d:'+k]=sv;patchMonth(o,[],doc);
   noteEdit=null;render(true);
 }

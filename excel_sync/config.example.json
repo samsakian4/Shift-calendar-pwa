@@ -1,0 +1,10 @@
+{
+  "xlsx_path": "C:\\Users\\SAM\\Documents\\داشبورد نورد فویل.xlsx",
+  "supabase_url": "https://YOUR-PROJECT.supabase.co",
+  "supabase_anon_key": "کلید publishable (همان که در docs/config.js هست)",
+  "publisher_email": "excel-publisher@example.com",
+  "publisher_password": "رمز حساب ناشر",
+  "poll_seconds": 5,
+  "settle_seconds": 4,
+  "skip": ["data base", "راهنما", "تقویم"]
+}

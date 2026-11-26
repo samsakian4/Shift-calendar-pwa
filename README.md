@@ -55,3 +55,8 @@ netlify.toml
 ## انتشار روی GitHub Pages (بدون نیاز به VPN)
 repo باید عمومی باشد. Settings › Pages › Source: Deploy from a branch › شاخه‌ی `main` و پوشه‌ی `/docs`.
 آدرس: `https://samsakian4.github.io/shift-calendar-pwa/` (فایل `.nojekyll` لازم است تا پوشه‌ی `.well-known` منتشر شود).
+
+## صفحه‌ی «اکسل» (نمایش شیت‌های فایل اکسل)
+
+بخش «اکسل» در منوی بالا، همه‌ی شیت‌های یک فایل اکسل را به‌صورت زیرتب نشان می‌دهد و با هر Save در اکسل به‌روز می‌شود.
+دیتابیس: `supabase/excel_schema.sql`. برنامه‌ی همگام‌ساز (روی کامپیوتر دارنده‌ی فایل اکسل): پوشه‌ی `excel_sync/` (راهنمای نصب در `excel_sync/README.md`).

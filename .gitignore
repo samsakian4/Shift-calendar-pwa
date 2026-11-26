@@ -4,3 +4,6 @@ node_modules/
 *.jks
 android.keystore
 .netlify
+
+excel_sync/config.json
+__pycache__/
